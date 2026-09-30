@@ -130,6 +130,10 @@ static const std::string str_filename("filename");
 void TVPBaseFileSelectorForm::ListDir(std::string path) {
 	std::pair<std::string, std::string> split_path = PathSplit(path);
 	ParentPath = split_path.first;
+	// [K2S] PathSplit("/switch") yields an empty parent (the leading '/' is never examined); with "/" as
+	// the root on Switch (Android's root is /storage/emulated/0, so it rarely matters there) go back to "/".
+	if (ParentPath.empty() && path.size() > 1 && path.front() == '/')
+		ParentPath = "/";
 	if (_title) {
 #if CC_PLATFORM_WIN32 == CC_TARGET_PLATFORM
 		// for better screenshot
@@ -180,7 +184,7 @@ void TVPBaseFileSelectorForm::ListDir(std::string path) {
 	});
 	// fill fullpath
 	for (auto it = CurrentDirList.begin(); it != CurrentDirList.end(); ++it) {
-		it->FullPath = path + "/" + it->NameForDisplay;
+		it->FullPath = path + (path.back() == '/' ? "" : "/") + it->NameForDisplay; // [K2S] root is "/"
 	}
 	std::sort(CurrentDirList.begin(), CurrentDirList.end());
 

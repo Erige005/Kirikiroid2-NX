@@ -1,0 +1,7 @@
+# Kirikiroid2-NX
+vendor/
+src/core/base/7zip/
+build/
+*.nro
+*.elf
+*.nacp

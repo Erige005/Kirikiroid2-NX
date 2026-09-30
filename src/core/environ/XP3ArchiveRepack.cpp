@@ -27,6 +27,19 @@ extern "C" {
 using namespace TJS;
 using namespace NArchive::N7z;
 
+#ifdef __SWITCH__
+// [K2S] The author's 7-Zip copy took tjs_char (char16_t) strings; stock LZMA SDK UString is wchar_t.
+// 7z stores names as UTF-16, so copying code units 1:1 keeps names byte-identical.
+static UString K2S_ToUString(const tjs_char *s) {
+	UString u;
+	while (*s) u += (wchar_t)*s++;
+	return u;
+}
+#define K2S_USTR(s) K2S_ToUString(s)
+#else
+#define K2S_USTR(s) (s)
+#endif
+
 #define COMPRESS_THRESHOLD 4 * 1024 * 1024
 #define S_INTERRUPT ((HRESULT)0x114705)
 
@@ -378,7 +391,7 @@ HRESULT XP3ArchiveRepackAsyncImpl::AddTo7zArchive(tTJSBinaryStream* s, const tts
 	tjs_uint64 origSize = s->GetSize();
 	file.Size = origSize;
 	file2.Init();
-	UString name(_name.c_str());
+	UString name(K2S_USTR(_name.c_str()));
 	UInt64 inSizeForReduce = origSize;
 	UInt64 newSize = origSize;
 	bool compressable = origSize > 64 && origSize < 4 * 1024 * 1024;
@@ -507,7 +520,7 @@ void XP3ArchiveRepackAsyncImpl::DoConv()
 					CFileItem file;
 					CFileItem2 file2;
 					file2.Init();
-					UString name(item.Name.c_str());
+					UString name(K2S_USTR(item.Name.c_str()));
 					file.Size = item.OrgSize;
 					file.HasStream = false;
 					newDatabase.AddFile(file, file2, name);

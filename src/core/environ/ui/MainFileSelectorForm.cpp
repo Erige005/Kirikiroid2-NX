@@ -21,6 +21,9 @@
 #include "TipsHelpForm.h"
 #include "XP3RepackForm.h"
 #include "cocos2d/CustomFileUtils.h"
+#ifdef __SWITCH__
+std::string TVPGetK2SCreditsText(); // [K2S] environ/switch/K2SCredits.cpp
+#endif
 
 using namespace cocos2d;
 using namespace cocos2d::ui;
@@ -116,7 +119,7 @@ static bool _CheckGameFolder(const std::string &path) {
 				isValidGameFolder = true;
 			}
 		} else if (mask & S_IFDIR) {
-			subFolders.emplace_back(path + "/" + name);
+			subFolders.emplace_back(path + (path.back() == '/' ? "" : "/") + name); // [K2S] root is "/"
 		}
 	});
 	while (!isValidGameFolder) {
@@ -372,6 +375,17 @@ void TVPMainFileSelectorForm::showMenu(Ref*) {
 					"XP3Player") == 0) TVPExitApplication(0);
 			});
 		} else {
+#ifdef __SWITCH__
+			// [K2S] About = credits of the Switch port, shown with Kirikiroid2's own (non-blocking) cocos
+			// message box. The patch-library / device-info buttons of the Android build don't apply here.
+			reader.findWidget("btnAbout")->addClickEventListener([](Ref*) {
+				std::string text = TVPGetK2SCreditsText();
+				std::string ok = LocaleConfigManager::GetInstance()->GetText("ok");
+				TVPMessageBoxForm::show(LocaleConfigManager::GetInstance()->GetText("menu_about"), text, 1, &ok,
+					[](int) {});
+			});
+			if (false)
+#endif
 			reader.findWidget("btnAbout")->addClickEventListener([](Ref*) {
 				std::string versionText = "Version ";
 				versionText += TVPGetPackageVersionString();

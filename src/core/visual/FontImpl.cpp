@@ -216,8 +216,22 @@ void TVPInitFontNames()
 #elif defined(WIN32)
 		if (TVPEnumFontsProc(TJS_W("file://./c/windows/fonts/msyh.ttf"))) break;
 		if (TVPEnumFontsProc(TJS_W("file://./c/windows/fonts/simhei.ttf"))) break;
+#elif defined(__SWITCH__)
+		// [K2S] same order as Android: user font on the SD card, then the bundled DroidSansFallback.ttf read
+		// through cocos (it lives in RomFS; a "romfs:/..." path can't go through TJS storages).
+		if (TVPEnumFontsProc(TJS_W("file://./switch/kirikiroid2/default.ttf"))) break;
+		{
+			auto data = cocos2d::FileUtils::getInstance()->getDataFromFile("DroidSansFallback.ttf");
+			if (TVPInternalEnumFonts(data.getBytes(), data.getSize(), "DroidSansFallback.ttf", [](TVPFontNamePathInfo* info)->tTJSBinaryStream* {
+				auto data = cocos2d::FileUtils::getInstance()->getDataFromFile(info->Path.AsStdString());
+				tTVPMemoryStream *ret = new tTVPMemoryStream();
+				ret->WriteBuffer(data.getBytes(), data.getSize());
+				ret->SetPosition(0);
+				return ret;
+			})) break;
+		}
 #endif
-        
+
         std::string fullPath = cocos2d::FileUtils::getInstance()->fullPathForFilename("DroidSansFallback.ttf");
         if (TVPEnumFontsProc(fullPath)) break;
 	} while (false);

@@ -131,7 +131,8 @@ void TVPListDir(const std::string &folder, std::function<void(const std::string&
 	{
 		while ((direntp = readdir(dirp)) != NULL)
 		{
-			std::string fullpath = folder + "/" + direntp->d_name;
+			// [K2S] avoid "//name" when folder is the root "/" (engine paths on Switch are Unix-style)
+			std::string fullpath = folder + (!folder.empty() && folder.back() == '/' ? "" : "/") + direntp->d_name;
 			if (!TVP_stat(fullpath.c_str(), stat_buf))
 				continue;
 			cb(direntp->d_name, stat_buf.st_mode);
@@ -149,7 +150,8 @@ void TVPGetLocalFileListAt(const ttstr &name, const std::function<void(const tts
 	{
 		while ((direntp = readdir(dirp)) != NULL)
 		{
-			std::string fullpath = folder + "/" + direntp->d_name;
+			// [K2S] avoid "//name" when folder is the root "/" (engine paths on Switch are Unix-style)
+			std::string fullpath = folder + (!folder.empty() && folder.back() == '/' ? "" : "/") + direntp->d_name;
 			if (!TVP_stat(fullpath.c_str(), stat_buf))
 				continue;
 			ttstr file(direntp->d_name);

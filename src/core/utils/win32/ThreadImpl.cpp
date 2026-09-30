@@ -172,6 +172,11 @@ static tjs_int GetProcesserNum(void)
   static tjs_int processor_num = 0;
   if (! processor_num) {
 	  processor_num = std::thread::hardware_concurrency();
+#ifdef __SWITCH__
+	  // [K2S] hardware_concurrency() is 0 on libnx; 0 draw threads means layers are never rendered.
+	  // Applications may use cores 0-2 (core 3 belongs to the system).
+	  if (processor_num <= 0) processor_num = 3;
+#endif
 	tjs_char tmp[34];
 	TVPAddLog(ttstr(TJS_W("Detected CPU core(s): ")) + TJS_tTVInt_to_str(processor_num, tmp));
   }

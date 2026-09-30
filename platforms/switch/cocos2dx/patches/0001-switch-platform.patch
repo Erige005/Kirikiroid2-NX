@@ -1,0 +1,700 @@
+diff --git a/cocos/2d/CCClippingNode.cpp b/cocos/2d/CCClippingNode.cpp
+index d7e4b7f..04f31f1 100644
+--- a/cocos/2d/CCClippingNode.cpp
++++ b/cocos/2d/CCClippingNode.cpp
+@@ -34,7 +34,7 @@
+ #include "base/CCDirector.h"
+ #include "base/CCStencilStateManager.hpp"
+ 
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WIN32 || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WIN32 || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX) && !defined(__SWITCH__)
+ #define CC_CLIPPING_NODE_OPENGLES 0
+ #else
+ #define CC_CLIPPING_NODE_OPENGLES 1
+diff --git a/cocos/3d/CCTerrain.cpp b/cocos/3d/CCTerrain.cpp
+index 03a5959..0ccd4c5 100644
+--- a/cocos/3d/CCTerrain.cpp
++++ b/cocos/3d/CCTerrain.cpp
+@@ -137,7 +137,7 @@ void Terrain::onDraw(const Mat4 &transform, uint32_t flags)
+ 
+     auto glProgram = getGLProgram();
+     glProgram->use();
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC) || (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if ((CC_TARGET_PLATFORM == CC_PLATFORM_MAC) || (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)) && !defined(__SWITCH__)
+     if(_isDrawWire)
+     {
+         glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+@@ -215,7 +215,7 @@ void Terrain::onDraw(const Mat4 &transform, uint32_t flags)
+     }
+     glActiveTexture(GL_TEXTURE0);
+ 
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC) || (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if ((CC_TARGET_PLATFORM == CC_PLATFORM_MAC) || (CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) || (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)) && !defined(__SWITCH__)
+     if(_isDrawWire)//reset state.
+     {
+         glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+diff --git a/cocos/base/CCConsole.cpp b/cocos/base/CCConsole.cpp
+index 41e16b0..2246cb3 100644
+--- a/cocos/base/CCConsole.cpp
++++ b/cocos/base/CCConsole.cpp
+@@ -54,7 +54,9 @@
+ #include <arpa/inet.h>
+ #include <netinet/in.h>
+ #include <sys/socket.h>
++#ifndef __SWITCH__
+ #include <sys/un.h>
++#endif
+ #include <sys/ioctl.h>
+ #endif
+ 
+diff --git a/cocos/base/CCController-switch.cpp b/cocos/base/CCController-switch.cpp
+new file mode 100644
+index 0000000..6fca2ea
+--- /dev/null
++++ b/cocos/base/CCController-switch.cpp
+@@ -0,0 +1,48 @@
++// [K2S] Platform part of cocos2d::Controller for Nintendo Switch.
++// Phase 1: no controllers are reported (touch-first, D-007). Phase 2 will poll libnx pads here and
++// feed onButtonEvent/onAxisEvent like CCController-android.cpp does.
++#include "base/CCController.h"
++
++#ifdef __SWITCH__
++#include "base/CCEventController.h"
++
++NS_CC_BEGIN
++
++class ControllerImpl
++{
++public:
++    explicit ControllerImpl(Controller* controller) : _controller(controller) {}
++private:
++    Controller* _controller;
++};
++
++void Controller::startDiscoveryController() {}
++void Controller::stopDiscoveryController() {}
++
++Controller::~Controller()
++{
++    delete _impl;
++    delete _connectEvent;
++    delete _keyEvent;
++    delete _axisEvent;
++}
++
++void Controller::registerListeners() {}
++
++bool Controller::isConnected() const { return true; }
++
++Controller::Controller()
++    : _controllerTag(TAG_UNSET)
++    , _impl(new ControllerImpl(this))
++    , _connectEvent(nullptr)
++    , _keyEvent(nullptr)
++    , _axisEvent(nullptr)
++{
++    init();
++}
++
++void Controller::receiveExternalKeyEvent(int externalKeyCode, bool receive) {}
++
++NS_CC_END
++
++#endif // __SWITCH__
+diff --git a/cocos/base/CCController.cpp b/cocos/base/CCController.cpp
+index e326a7f..ef52a72 100644
+--- a/cocos/base/CCController.cpp
++++ b/cocos/base/CCController.cpp
+@@ -25,7 +25,7 @@
+ 
+ #include "base/CCController.h"
+ 
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_IOS) || defined(__SWITCH__) // [K2S]
+ 
+ #include "base/CCEventDispatcher.h"
+ #include "base/CCEventController.h"
+diff --git a/cocos/base/CCEventMouse.h b/cocos/base/CCEventMouse.h
+index 8bfc72e..72f39a0 100644
+--- a/cocos/base/CCEventMouse.h
++++ b/cocos/base/CCEventMouse.h
+@@ -113,12 +113,26 @@ public:
+      * @js setButton
+      */
+     inline void setMouseButton(int button) { _mouseButton = button; };
++    // [K2S] Kirikiroid2 1.3.9 was built against a cocos 3.11.1 with the 3.12-style MouseButton enum
++    // backported (MainScene.cpp switches on EventMouse::MouseButton::BUTTON_*).
++    enum class MouseButton
++    {
++        BUTTON_UNSET   = -1,
++        BUTTON_LEFT    =  0,
++        BUTTON_RIGHT   =  1,
++        BUTTON_MIDDLE  =  2,
++        BUTTON_4       =  3,
++        BUTTON_5       =  4,
++        BUTTON_6       =  5,
++        BUTTON_7       =  6,
++        BUTTON_8       =  7
++    };
+     /** Get mouse button.
+      *
+      * @return The mouse button.
+      * @js getButton
+      */
+-    inline int getMouseButton() const { return _mouseButton; };
++    inline MouseButton getMouseButton() const { return (MouseButton)_mouseButton; };
+     /** Get the cursor position of x axis.
+      *
+      * @return The x coordinate of cursor position.
+diff --git a/cocos/base/CCStencilStateManager.cpp b/cocos/base/CCStencilStateManager.cpp
+index 3150a16..99331d0 100644
+--- a/cocos/base/CCStencilStateManager.cpp
++++ b/cocos/base/CCStencilStateManager.cpp
+@@ -29,7 +29,7 @@
+ #include "renderer/ccGLStateCache.h"
+ #include "renderer/CCRenderer.h"
+ #include "renderer/CCRenderState.h"
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WIN32 || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_MAC || CC_TARGET_PLATFORM == CC_PLATFORM_WIN32 || CC_TARGET_PLATFORM == CC_PLATFORM_LINUX) && !defined(__SWITCH__)
+ #define CC_CLIPPING_NODE_OPENGLES 0
+ #else
+ #define CC_CLIPPING_NODE_OPENGLES 1
+diff --git a/cocos/editor-support/cocostudio/WidgetReader/NodeReader/NodeReader.cpp b/cocos/editor-support/cocostudio/WidgetReader/NodeReader/NodeReader.cpp
+index cb8a4ea..37801d6 100644
+--- a/cocos/editor-support/cocostudio/WidgetReader/NodeReader/NodeReader.cpp
++++ b/cocos/editor-support/cocostudio/WidgetReader/NodeReader/NodeReader.cpp
+@@ -31,6 +31,7 @@
+ #include "tinyxml2.h"
+ #include "flatbuffers/flatbuffers.h"
+ #include "ui/UILayoutComponent.h"
++#include "ui/UIWidget.h"
+ 
+ USING_NS_CC;
+ using namespace flatbuffers;
+@@ -596,7 +597,10 @@ namespace cocostudio
+ 
+     Node* NodeReader::createNodeWithFlatBuffers(const flatbuffers::Table *nodeOptions)
+     {
+-        Node* node = Node::create();
++        // [K2S] Kirikiroid2 1.3.9 casts loaded .csb roots (plain "Node"/Layer objects) to ui::Widget
++        // (BaseForm.cpp RootNode, FileSelectorForm ListItem cells, ...), so the author's cocos built them
++        // as Widgets. Widget derives from Node; touch stays disabled by default.
++        Node* node = ui::Widget::create();
+         
+         setPropsWithFlatBuffers(node, nodeOptions);
+         
+diff --git a/cocos/platform/CCFileUtils.cpp b/cocos/platform/CCFileUtils.cpp
+index ed622f7..f300ef8 100644
+--- a/cocos/platform/CCFileUtils.cpp
++++ b/cocos/platform/CCFileUtils.cpp
+@@ -40,6 +40,12 @@ THE SOFTWARE.
+ #include "unzip.h"
+ #endif
+ #include <sys/stat.h>
++#ifdef __SWITCH__
++// newlib: these must be seen at global scope before the in-namespace includes below
++#include <sys/types.h>
++#include <errno.h>
++#include <dirent.h>
++#endif
+ 
+ NS_CC_BEGIN
+ 
+@@ -1024,6 +1030,13 @@ bool FileUtils::isFileExist(const std::string& filename) const
+ 
+ bool FileUtils::isAbsolutePath(const std::string& path) const
+ {
++#ifdef __SWITCH__
++    // [K2S] Horizon paths carry a device prefix: "romfs:/...", "sdmc:/..." (a ':' before the first '/')
++    size_t colon = path.find(':');
++    if (colon != std::string::npos && colon > 0 && colon + 1 < path.size() && path[colon + 1] == '/'
++        && path.find('/') == colon + 1)
++        return true;
++#endif
+     return (path[0] == '/');
+ }
+ 
+diff --git a/cocos/platform/CCImage.h b/cocos/platform/CCImage.h
+index 86e80f1..e1b9fc0 100644
+--- a/cocos/platform/CCImage.h
++++ b/cocos/platform/CCImage.h
+@@ -119,6 +119,13 @@ public:
+ 
+     // @warning kFmtRawData only support RGBA8888
+     bool initWithRawData(const unsigned char * data, ssize_t dataLen, int width, int height, int bitsPerComponent, bool preMulti = false);
++    // [K2S] overload present in the cocos build used by Kirikiroid2 1.3.9 (MainScene.cpp passes a PixelFormat).
++    // Raw data is RGBA8888-only either way; bitsPerComponent is unused by the implementation.
++    bool initWithRawData(const unsigned char * data, ssize_t dataLen, int width, int height,
++                         Texture2D::PixelFormat /*format*/, bool preMulti = false)
++    {
++        return initWithRawData(data, dataLen, width, height, 8, preMulti);
++    }
+ 
+     // Getters
+     inline unsigned char *   getData()               { return _data; }
+diff --git a/cocos/platform/desktop/CCGLViewImpl-desktop.cpp b/cocos/platform/desktop/CCGLViewImpl-desktop.cpp
+index f897df2..e81293d 100644
+--- a/cocos/platform/desktop/CCGLViewImpl-desktop.cpp
++++ b/cocos/platform/desktop/CCGLViewImpl-desktop.cpp
+@@ -39,6 +39,16 @@ THE SOFTWARE.
+ #include "2d/CCCamera.h"
+ #include "deprecated/CCString.h"
+ 
++#ifdef __SWITCH__
++#include <switch.h>
++
++PFNGLGENVERTEXARRAYSOESPROC    glGenVertexArraysOESEXT    = nullptr;
++PFNGLBINDVERTEXARRAYOESPROC    glBindVertexArrayOESEXT    = nullptr;
++PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOESEXT = nullptr;
++PFNGLMAPBUFFEROESPROC          glMapBufferOESEXT          = nullptr;
++PFNGLUNMAPBUFFEROESPROC        glUnmapBufferOESEXT        = nullptr;
++#endif
++
+ NS_CC_BEGIN
+ 
+ // GLFWEventHandler
+@@ -355,6 +365,12 @@ bool GLViewImpl::initWithRect(const std::string& viewName, Rect rect, float fram
+     glfwWindowHint(GLFW_ALPHA_BITS,_glContextAttrs.alphaBits);
+     glfwWindowHint(GLFW_DEPTH_BITS,_glContextAttrs.depthBits);
+     glfwWindowHint(GLFW_STENCIL_BITS,_glContextAttrs.stencilBits);
++#ifdef __SWITCH__
++    // Same GL flavour as the Android build: OpenGL ES 2.0.
++    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
++    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
++    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
++#endif
+ 
+     int needWidth = rect.size.width * _frameZoomFactor;
+     int neeHeight = rect.size.height * _frameZoomFactor;
+@@ -397,8 +413,12 @@ bool GLViewImpl::initWithRect(const std::string& viewName, Rect rect, float fram
+ 
+     glfwMakeContextCurrent(_mainWindow);
+ 
++#ifndef __SWITCH__
++    // [K2S] switch-glfw emulates a mouse from the touchscreen; touches come from libnx directly
++    // (switchPollTouches, multi-touch), so the emulated mouse would deliver every tap twice.
+     glfwSetMouseButtonCallback(_mainWindow, GLFWEventHandler::onGLFWMouseCallBack);
+     glfwSetCursorPosCallback(_mainWindow, GLFWEventHandler::onGLFWMouseMoveCallBack);
++#endif
+     glfwSetScrollCallback(_mainWindow, GLFWEventHandler::onGLFWMouseScrollCallback);
+     glfwSetCharCallback(_mainWindow, GLFWEventHandler::onGLFWCharCallback);
+     glfwSetKeyCallback(_mainWindow, GLFWEventHandler::onGLFWKeyCallback);
+@@ -412,7 +432,13 @@ bool GLViewImpl::initWithRect(const std::string& viewName, Rect rect, float fram
+     // check OpenGL version at first
+     const GLubyte* glVersion = glGetString(GL_VERSION);
+ 
++#ifdef __SWITCH__
++    // "OpenGL ES 2.0 Mesa ..." doesn't parse as a number; an ES 2 context was requested explicitly.
++    log("GL_VERSION: %s", glVersion);
++    if ( glVersion == nullptr )
++#else
+     if ( utils::atof((const char*)glVersion) < 1.5 )
++#endif
+     {
+         char strComplain[256] = {0};
+         sprintf(strComplain,
+@@ -424,8 +450,10 @@ bool GLViewImpl::initWithRect(const std::string& viewName, Rect rect, float fram
+ 
+     initGlew();
+ 
+-    // Enable point size by default.
++    // Enable point size by default (always on in OpenGL ES).
++#ifndef __SWITCH__
+     glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
++#endif
+ 
+     return true;
+ }
+@@ -487,9 +515,75 @@ bool GLViewImpl::windowShouldClose()
+         return true;
+ }
+ 
++#ifdef __SWITCH__
++// Multi-touch from the Switch touchscreen (libnx HID). Touch coordinates are always in
++// 1280x720 panel space; scale them to the current frame size.
++static void switchPollTouches(GLViewImpl* view)
++{
++    static bool inited = false;
++    static std::unordered_map<intptr_t, Vec2> active;
++    if (!inited)
++    {
++        hidInitializeTouchScreen();
++        inited = true;
++    }
++
++    HidTouchScreenState state = {0};
++    if (hidGetTouchScreenStates(&state, 1) == 0)
++        return;
++
++    const Size frame = view->getFrameSize();
++    const float sx = frame.width / 1280.0f, sy = frame.height / 720.0f;
++
++    std::unordered_map<intptr_t, Vec2> now;
++    for (int i = 0; i < state.count && i < 16; ++i)
++    {
++        now[(intptr_t)state.touches[i].finger_id] =
++            Vec2(state.touches[i].x * sx, state.touches[i].y * sy);
++    }
++
++    intptr_t ids[16];
++    float xs[16], ys[16];
++    int nBegin = 0, nMove = 0, nEnd = 0;
++
++    for (auto& t : active)
++    {
++        if (now.find(t.first) == now.end())
++        {
++            ids[nEnd] = t.first; xs[nEnd] = t.second.x; ys[nEnd] = t.second.y; ++nEnd;
++        }
++    }
++    if (nEnd) view->handleTouchesEnd(nEnd, ids, xs, ys);
++
++    for (auto& t : now)
++    {
++        if (active.find(t.first) == active.end())
++        {
++            ids[nBegin] = t.first; xs[nBegin] = t.second.x; ys[nBegin] = t.second.y; ++nBegin;
++        }
++    }
++    if (nBegin) view->handleTouchesBegin(nBegin, ids, xs, ys);
++
++    for (auto& t : now)
++    {
++        auto it = active.find(t.first);
++        if (it != active.end() && it->second != t.second)
++        {
++            ids[nMove] = t.first; xs[nMove] = t.second.x; ys[nMove] = t.second.y; ++nMove;
++        }
++    }
++    if (nMove) view->handleTouchesMove(nMove, ids, xs, ys);
++
++    active.swap(now);
++}
++#endif
++
+ void GLViewImpl::pollEvents()
+ {
+     glfwPollEvents();
++#ifdef __SWITCH__
++    switchPollTouches(this);
++#endif
+ }
+ 
+ void GLViewImpl::enableRetina(bool enabled)
+@@ -900,7 +994,15 @@ static bool glew_dynamic_binding()
+ // helper
+ bool GLViewImpl::initGlew()
+ {
+-#if (CC_TARGET_PLATFORM != CC_PLATFORM_MAC)
++#ifdef __SWITCH__
++    glGenVertexArraysOESEXT    = (PFNGLGENVERTEXARRAYSOESPROC)glfwGetProcAddress("glGenVertexArraysOES");
++    glBindVertexArrayOESEXT    = (PFNGLBINDVERTEXARRAYOESPROC)glfwGetProcAddress("glBindVertexArrayOES");
++    glDeleteVertexArraysOESEXT = (PFNGLDELETEVERTEXARRAYSOESPROC)glfwGetProcAddress("glDeleteVertexArraysOES");
++    glMapBufferOESEXT          = (PFNGLMAPBUFFEROESPROC)glfwGetProcAddress("glMapBufferOES");
++    glUnmapBufferOESEXT        = (PFNGLUNMAPBUFFEROESPROC)glfwGetProcAddress("glUnmapBufferOES");
++    log("GL ext: VAO=%s mapbuffer=%s", glGenVertexArraysOESEXT ? "yes" : "no", glMapBufferOESEXT ? "yes" : "no");
++#endif
++#if (CC_TARGET_PLATFORM != CC_PLATFORM_MAC) && !defined(__SWITCH__)
+     GLenum GlewInitResult = glewInit();
+     if (GLEW_OK != GlewInitResult)
+     {
+diff --git a/cocos/platform/linux/CCApplication-linux.cpp b/cocos/platform/linux/CCApplication-linux.cpp
+index e7c6f63..f09b5f3 100644
+--- a/cocos/platform/linux/CCApplication-linux.cpp
++++ b/cocos/platform/linux/CCApplication-linux.cpp
+@@ -32,6 +32,9 @@ THE SOFTWARE.
+ #include <string>
+ #include "base/CCDirector.h"
+ #include "platform/CCFileUtils.h"
++#ifdef __SWITCH__
++#include <switch.h>
++#endif
+ 
+ NS_CC_BEGIN
+ 
+@@ -79,7 +82,11 @@ int Application::run()
+     // Retain glview to avoid glview being released in the while loop
+     glview->retain();
+ 
++#ifdef __SWITCH__
++    while (appletMainLoop() && !glview->windowShouldClose())
++#else
+     while (!glview->windowShouldClose())
++#endif
+     {
+         lastTime = getCurrentMillSecond();
+ 
+diff --git a/cocos/platform/linux/CCDevice-linux.cpp b/cocos/platform/linux/CCDevice-linux.cpp
+index 72a0fa5..b36512d 100644
+--- a/cocos/platform/linux/CCDevice-linux.cpp
++++ b/cocos/platform/linux/CCDevice-linux.cpp
+@@ -27,7 +27,12 @@ THE SOFTWARE.
+ #if CC_TARGET_PLATFORM == CC_PLATFORM_LINUX
+ 
+ #include "platform/CCDevice.h"
++#ifdef __SWITCH__
++#include <switch.h>
++#else
+ #include <X11/Xlib.h>
++#include <fontconfig/fontconfig.h>
++#endif
+ #include <stdio.h>
+ 
+ #include <algorithm>
+@@ -35,7 +40,6 @@ THE SOFTWARE.
+ #include <map>
+ #include <string>
+ #include <sstream>
+-#include <fontconfig/fontconfig.h>
+ #include "platform/CCFileUtils.h"
+ 
+ #include "ft2build.h"
+@@ -80,8 +84,13 @@ NS_CC_BEGIN
+ int Device::getDPI()
+ {
+     static int dpi = -1;
++#ifdef __SWITCH__
++    // 6.2" 1280x720 panel (OLED 7" is ~210; the difference is irrelevant for UI scaling here).
++    dpi = 237;
++#endif
+     if (dpi == -1)
+     {
++#ifndef __SWITCH__
+         Display *dpy;
+         char *displayname = NULL;
+         int scr = 0; /* Screen number */
+@@ -98,6 +107,7 @@ int Device::getDPI()
+         dpi = (int) (xres + 0.5);
+         //printf("dpi = %d\n", dpi);
+         XCloseDisplay (dpy);
++#endif
+     }
+     return dpi;
+ }
+@@ -117,15 +127,19 @@ class BitmapDC
+ public:
+     BitmapDC() {
+         libError = FT_Init_FreeType( &library );
++#ifndef __SWITCH__
+         FcInit();
++#endif
+         _data = NULL;
+         reset();
+     }
+ 
+     ~BitmapDC() {
+         FT_Done_FreeType(library);
++#ifndef __SWITCH__
+         FcFini();
+-        
++#endif
++
+         reset();
+     }
+ 
+@@ -344,6 +358,10 @@ public:
+             }
+         }
+ 
++#ifdef __SWITCH__
++        // no fontconfig on Switch: unknown families fall back to the system shared font
++        return family_name;
++#else
+         // use fontconfig to match the parameter against the fonts installed on the system
+         FcPattern *pattern = FcPatternBuild (0, FC_FAMILY, FcTypeString, family_name, (char *) 0);
+         FcConfigSubstitute(0, pattern, FcMatchPattern);
+@@ -367,6 +385,7 @@ public:
+         FcPatternDestroy(pattern);
+ 
+         return family_name;
++#endif
+     }
+ 
+     bool getBitmap(const char *text, const FontDefinition& textDefinition, Device::TextAlign eAlignMask) {
+@@ -378,9 +397,23 @@ public:
+         std::string fontfile = getFontFile(textDefinition._fontName.c_str());
+         if ( FT_New_Face(library, fontfile.c_str(), 0, &face) ) {
+             //no valid font found use default
++#ifdef __SWITCH__
++            // system shared font (Nintendo Standard + CJK) provided by the pl service
++            static PlFontData sharedFont;
++            static bool sharedFontOk = false;
++            if (!sharedFontOk) {
++                sharedFontOk = R_SUCCEEDED(plInitialize(PlServiceType_User)) &&
++                               R_SUCCEEDED(plGetSharedFontByType(&sharedFont, PlSharedFontType_ChineseSimplified));
++            }
++            if ( !sharedFontOk ||
++                 FT_New_Memory_Face(library, (const FT_Byte*)sharedFont.address, sharedFont.size, 0, &face) ) {
++                return false;
++            }
++#else
+             if ( FT_New_Face(library, "/usr/share/fonts/truetype/freefont/FreeSerif.ttf", 0, &face) ) {
+                 return false;
+             }
++#endif
+         }
+ 
+         //select utf8 charmap
+diff --git a/cocos/platform/linux/CCFileUtils-linux.cpp b/cocos/platform/linux/CCFileUtils-linux.cpp
+index c0f6336..b43b62a 100644
+--- a/cocos/platform/linux/CCFileUtils-linux.cpp
++++ b/cocos/platform/linux/CCFileUtils-linux.cpp
+@@ -65,6 +65,13 @@ FileUtilsLinux::FileUtilsLinux()
+ 
+ bool FileUtilsLinux::init()
+ {
++#ifdef __SWITCH__
++    // Bundled resources live in the NRO's RomFS; user data next to the NRO on the SD card.
++    _defaultResRootPath = "romfs:/";
++    _writablePath = "/switch/kirikiroid2/"; // no "sdmc:" prefix: Kirikiroid2 hands this path to TJS
++    mkdir(_writablePath.c_str(), 0777);
++    return FileUtils::init();
++#endif
+     // get application path
+     char fullpath[256] = {0};
+     ssize_t length = readlink("/proc/self/exe", fullpath, sizeof(fullpath)-1);
+diff --git a/cocos/platform/linux/CCFileUtils-linux.h b/cocos/platform/linux/CCFileUtils-linux.h
+index a0f43d8..b6d95c8 100644
+--- a/cocos/platform/linux/CCFileUtils-linux.h
++++ b/cocos/platform/linux/CCFileUtils-linux.h
+@@ -45,13 +45,16 @@ NS_CC_BEGIN
+ class CC_DLL FileUtilsLinux : public FileUtils
+ {
+     friend class FileUtils;
+-    FileUtilsLinux();
+     std::string _writablePath;
++protected:
++    // [K2S] protected (was private): Kirikiroid2's CustomFileUtils derives from the platform FileUtils,
++    // like FileUtilsAndroid/Win32 whose members are accessible to subclasses.
++    FileUtilsLinux();
+ public:
+     /* override functions */
+     bool init();
+     virtual std::string getWritablePath() const;
+-private:
++protected:
+     virtual bool isFileExistInternal(const std::string& strFilePath) const override;
+ };
+ 
+diff --git a/cocos/platform/linux/CCGL-linux.h b/cocos/platform/linux/CCGL-linux.h
+index 8a72961..098693d 100644
+--- a/cocos/platform/linux/CCGL-linux.h
++++ b/cocos/platform/linux/CCGL-linux.h
+@@ -28,9 +28,45 @@ THE SOFTWARE.
+ #include "platform/CCPlatformConfig.h"
+ #if CC_TARGET_PLATFORM == CC_PLATFORM_LINUX
+ 
++#ifdef __SWITCH__
++// Nintendo Switch: OpenGL ES 2.0 via mesa/nouveau (same GL flavour as the Android build).
++#define glClearDepth                glClearDepthf
++#define glDeleteVertexArrays        glDeleteVertexArraysOES
++#define glGenVertexArrays           glGenVertexArraysOES
++#define glBindVertexArray           glBindVertexArrayOES
++#define glMapBuffer                 glMapBufferOES
++#define glUnmapBuffer               glUnmapBufferOES
++
++#define GL_DEPTH24_STENCIL8         GL_DEPTH24_STENCIL8_OES
++#define GL_WRITE_ONLY               GL_WRITE_ONLY_OES
++
++#ifndef GL_GLEXT_PROTOTYPES
++#define GL_GLEXT_PROTOTYPES 1
++#endif
++#include <GLES2/gl2.h>
++#include <GLES2/gl2ext.h>
++#ifndef GL_BGRA
++#define GL_BGRA  0x80E1
++#endif
++#define CC_GL_DEPTH24_STENCIL8      GL_DEPTH24_STENCIL8_OES
++
++// mesa's static libGLESv2 doesn't export extension entry points: they are resolved with
++// eglGetProcAddress in GLViewImpl::initWithRect (see CCGLViewImpl-desktop.cpp).
++extern PFNGLGENVERTEXARRAYSOESPROC    glGenVertexArraysOESEXT;
++extern PFNGLBINDVERTEXARRAYOESPROC    glBindVertexArrayOESEXT;
++extern PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOESEXT;
++extern PFNGLMAPBUFFEROESPROC          glMapBufferOESEXT;
++extern PFNGLUNMAPBUFFEROESPROC        glUnmapBufferOESEXT;
++#define glGenVertexArraysOES    glGenVertexArraysOESEXT
++#define glBindVertexArrayOES    glBindVertexArrayOESEXT
++#define glDeleteVertexArraysOES glDeleteVertexArraysOESEXT
++#define glMapBufferOES          glMapBufferOESEXT
++#define glUnmapBufferOES        glUnmapBufferOESEXT
++#else
+ #include "GL/glew.h"
+ 
+ #define CC_GL_DEPTH24_STENCIL8      GL_DEPTH24_STENCIL8
++#endif // __SWITCH__
+ 
+ #endif // CC_TARGET_PLATFORM == CC_PLATFORM_LINUX
+ 
+diff --git a/cocos/renderer/CCGLProgram.cpp b/cocos/renderer/CCGLProgram.cpp
+index b4fa221..bc90ddc 100644
+--- a/cocos/renderer/CCGLProgram.cpp
++++ b/cocos/renderer/CCGLProgram.cpp
+@@ -440,7 +440,7 @@ bool GLProgram::compileShader(GLuint* shader, GLenum type, const GLchar* source,
+     const GLchar *sources[] = {
+ #if CC_TARGET_PLATFORM == CC_PLATFORM_WINRT
+         (type == GL_VERTEX_SHADER ? "precision mediump float;\n precision mediump int;\n" : "precision mediump float;\n precision mediump int;\n"),
+-#elif (CC_TARGET_PLATFORM != CC_PLATFORM_WIN32 && CC_TARGET_PLATFORM != CC_PLATFORM_LINUX && CC_TARGET_PLATFORM != CC_PLATFORM_MAC)
++#elif (CC_TARGET_PLATFORM != CC_PLATFORM_WIN32 && CC_TARGET_PLATFORM != CC_PLATFORM_LINUX && CC_TARGET_PLATFORM != CC_PLATFORM_MAC) || defined(__SWITCH__)
+         (type == GL_VERTEX_SHADER ? "precision highp float;\n precision highp int;\n" : "precision mediump float;\n precision mediump int;\n"),
+ #endif
+         COCOS2D_SHADER_UNIFORMS,
+diff --git a/cocos/ui/UIEditBox/UIEditBoxImpl-linux.cpp b/cocos/ui/UIEditBox/UIEditBoxImpl-linux.cpp
+index 0d7ab2d..6b0d438 100644
+--- a/cocos/ui/UIEditBox/UIEditBoxImpl-linux.cpp
++++ b/cocos/ui/UIEditBox/UIEditBoxImpl-linux.cpp
+@@ -30,6 +30,27 @@
+ #include "ui/UIEditBox/UIEditBox.h"
+ #include "2d/CCLabel.h"
+ #include "base/ccUTF8.h"
++
++#ifdef __SWITCH__
++#include <switch.h>
++
++// Switch system software keyboard (swkbd applet) instead of a GTK dialog.
++bool LinuxInputBox(std::string &entryLine)
++{
++    SwkbdConfig kbd;
++    if (R_FAILED(swkbdCreate(&kbd, 0)))
++        return false;
++    swkbdConfigMakePresetDefault(&kbd);
++    swkbdConfigSetInitialText(&kbd, entryLine.c_str());
++    char out[1024] = {0};
++    Result rc = swkbdShow(&kbd, out, sizeof(out));
++    swkbdClose(&kbd);
++    if (R_FAILED(rc))
++        return false; // cancelled
++    entryLine = out;
++    return true;
++}
++#else
+ #include <gtk/gtk.h>
+ 
+ // destroy dialog when lost focus
+@@ -76,6 +97,7 @@ bool LinuxInputBox(std::string &entryLine)
+     while (g_main_context_iteration(NULL, false));
+     return didChange;
+ }
++#endif // __SWITCH__
+ 
+ NS_CC_BEGIN
+ 
+diff --git a/extensions/GUI/CCScrollView/CCScrollView.h b/extensions/GUI/CCScrollView/CCScrollView.h
+index 45d618d..8717ed5 100644
+--- a/extensions/GUI/CCScrollView/CCScrollView.h
++++ b/extensions/GUI/CCScrollView/CCScrollView.h
+@@ -172,11 +172,12 @@ public:
+     /**
+      * Returns the current container's minimum offset. You may want this while you animate scrolling by yourself
+      */
+-    Vec2 minContainerOffset();
++    // [K2S] virtual in the cocos build used by Kirikiroid2 1.3.9 (TVPWindowLayer overrides them)
++    virtual Vec2 minContainerOffset();
+     /**
+      * Returns the current container's maximum offset. You may want this while you animate scrolling by yourself
+      */
+-    Vec2 maxContainerOffset(); 
++    virtual Vec2 maxContainerOffset();
+     /**
+      * Determines if a given node's bounding box is in visible bounds
+      *
