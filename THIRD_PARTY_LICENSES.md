@@ -11,6 +11,9 @@ LGPL-licensed libraries.
 | KiriKiri2 / KiriKiri Z | (inside Kirikiroid2) | KiriKiri license, see `LICENSE` | https://github.com/krkrz |
 | extrans plugin | krkrz/SamplePlugin (2017-12) | KiriKiri license | https://github.com/krkrz/SamplePlugin |
 | layerExImage plugin | wtnbgo/layerExImage | author's license + CxImage (zlib-style), see `src/plugins/layerExImage/LICENSE.TXT` | https://github.com/wtnbgo/layerExImage |
+| fstat plugin | krkr2 `cpp/plugins/fstat` (port of wtnbgo/fstat) | KiriKiri license | https://github.com/2468785842/krkr2 , https://github.com/wtnbgo/fstat |
+| layerExDraw plugin | krkr2 `cpp/plugins/layerex_draw/blend2d` (reimplementation of wtnbgo/layerExDraw) | KiriKiri license | https://github.com/2468785842/krkr2 , https://github.com/wtnbgo/layerExDraw |
+| Blend2D | d2027eb (2025-03-08) | zlib | https://github.com/blend2d/blend2d |
 | cocos2d-x | 3.11.1 (+ Switch patches) | MIT | https://github.com/cocos2d/cocos2d-x |
 | cocos2d-x 3rd-party bundle (tinyxml2, unzip, xxhash, ConvertUTF, poly2tri, clipper, flatbuffers, ...) | v3-deps-94 | zlib / MIT / BSD / Apache-2.0 (per component) | https://github.com/cocos2d/cocos2d-x-3rd-party-libs-bin |
 | FFmpeg | 3.2.19 (LGPL build, no GPL parts) | LGPL-2.1-or-later | https://ffmpeg.org |

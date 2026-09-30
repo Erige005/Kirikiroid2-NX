@@ -587,6 +587,10 @@ void TVPGetLocalName(ttstr &name)
 //---------------------------------------------------------------------------
 ttstr TVPGetLocallyAccessibleName(const ttstr &name)
 {
+	// [K2S] an empty name (e.g. TVPGetPlacedPath() of a file that doesn't exist, as fstat's deleteFile passes
+	// when a game deletes an old save thumbnail) is simply "not locally accessible"; parsing it threw
+	// "Not supported media type """ and aborted saving (Mahoutsukai no Yoru).
+	if(name.IsEmpty()) return TJS_W("");
 	if(TJS_strchr(name.c_str(), TVPArchiveDelimiter)) return TJS_W("");
 		 // in-archive storage is always not accessible from local file system
 	return TVPStorageMediaManager.GetLocallyAccessibleName(name);

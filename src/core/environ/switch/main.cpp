@@ -11,11 +11,16 @@ static void setupLogging()
     if (nxlinkStdio() >= 0) return;
     mkdir("sdmc:/switch", 0777);
     mkdir("sdmc:/switch/kirikiroid2", 0777);
+    // keep the previous run's log (e.g. the session that saved, when the bug shows after a relaunch)
+    remove("sdmc:/switch/kirikiroid2/k2s_log.prev.txt");
+    rename("sdmc:/switch/kirikiroid2/k2s_log.txt", "sdmc:/switch/kirikiroid2/k2s_log.prev.txt");
     if (freopen("sdmc:/switch/kirikiroid2/k2s_log.txt", "w", stdout)) {
-        setvbuf(stdout, nullptr, _IONBF, 0);
+        // line-buffered: unbuffered stdout made every character a separate SD-card write (slow when
+        // engines/scripts log a lot). Crashes still keep everything up to the last complete line.
+        setvbuf(stdout, nullptr, _IOLBF, 4096);
         dup2(fileno(stdout), fileno(stderr));
     }
-    printf("Kirikiroid2-Switch log\n");
+    printf("Kirikiroid2-Switch log (build " __DATE__ " " __TIME__ ")\n");
 }
 
 extern "C" void K2SBootMark(const char *stage); // K2SBootLog.cpp

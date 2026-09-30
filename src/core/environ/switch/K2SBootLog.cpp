@@ -71,7 +71,7 @@ __attribute__((constructor(101))) static void K2SBootFirst()
     FILE *f = fopen(kBootLog, "w");
     if (!f) return;
     const u64 base = imageBase();
-    fprintf(f, "1 static-init start (image base 0x%lx, %ld init entries)\n", base,
+    fprintf(f, "0 build " __DATE__ " " __TIME__ "\n1 static-init start (image base 0x%lx, %ld init entries)\n", base,
             (long)(__init_array_end - __init_array_start));
     fflush(f);
     fsync(fileno(f));
@@ -138,7 +138,7 @@ void __libnx_exception_handler(ThreadExceptionDump *ctx)
     const u64 base = imageBase();
     FILE *f = fopen("sdmc:/switch/kirikiroid2/k2s_crash.txt", "w");
     if (f) {
-        fprintf(f, "Kirikiroid2-Switch crash\nerror_desc: 0x%x\nimage base: 0x%lx\n", ctx->error_desc, base);
+        fprintf(f, "Kirikiroid2-Switch crash (build " __DATE__ " " __TIME__ ")\nerror_desc: 0x%x\nimage base: 0x%lx\n", ctx->error_desc, base);
         fprintf(f, "PC  = 0x%lx  (elf+0x%lx)\n", ctx->pc.x, ctx->pc.x - base);
         fprintf(f, "LR  = 0x%lx  (elf+0x%lx)\n", ctx->lr.x, ctx->lr.x - base);
         fprintf(f, "FP  = 0x%lx  SP = 0x%lx\nFAR = 0x%lx\n", ctx->fp.x, ctx->sp.x, ctx->far.x);

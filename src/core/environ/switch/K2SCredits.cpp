@@ -1,7 +1,7 @@
 // Kirikiroid2-NX — credits shown by the About button of the file selector.
 #include <string>
 
-#define K2NX_VERSION "0.1.0-alpha"
+#define K2NX_VERSION "0.1.1-alpha"
 
 const char *TVPGetK2NXVersion() { return K2NX_VERSION; }
 

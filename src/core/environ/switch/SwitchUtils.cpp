@@ -168,9 +168,8 @@ bool TVPCreateFolders(const ttstr &folder)
 	return _TVPCreateFolders(ttstr(p, i + 1));
 }
 
-bool TVPWriteDataToFile(const ttstr &filepath, const void *data, unsigned int size) {
+static bool k2s_WriteDataToFile(const std::string &filename, const void *data, unsigned int size) {
 	// Android writes to "<name>.<time>.bak" first when the file exists, then swaps; keep that.
-	std::string filename = filepath.AsStdString();
 	cocos2d::FileUtils *fileutil = cocos2d::FileUtils::getInstance();
 	if (fileutil->isFileExist(filename)) {
 		char suffix[32];
@@ -180,7 +179,7 @@ bool TVPWriteDataToFile(const ttstr &filepath, const void *data, unsigned int si
 			FILE *fp = fopen(filename.c_str(), "wb");
 			if (fp) {
 				bool ret = fwrite(data, 1, size, fp) == size;
-				fclose(fp);
+				ret = (fclose(fp) == 0) && ret;
 				remove(tempname.c_str());
 				return ret;
 			}
@@ -191,7 +190,14 @@ bool TVPWriteDataToFile(const ttstr &filepath, const void *data, unsigned int si
 	FILE *fp = fopen(filename.c_str(), "wb");
 	if (!fp) return false;
 	bool ret = fwrite(data, 1, size, fp) == size;
-	fclose(fp);
+	ret = (fclose(fp) == 0) && ret;
+	return ret;
+}
+
+bool TVPWriteDataToFile(const ttstr &filepath, const void *data, unsigned int size) {
+	std::string filename = filepath.AsStdString();
+	bool ret = k2s_WriteDataToFile(filename, data, size);
+	printf("[K2S] write %s (%u bytes): %s\n", filename.c_str(), size, ret ? "ok" : "FAILED");
 	return ret;
 }
 

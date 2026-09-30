@@ -4,6 +4,11 @@
 cmake_minimum_required(VERSION 3.13)
 project(kirikiroid2_switch C CXX)
 
+# Release = what the Android build used (project/android/jni/Application.mk: -O3 -DNDEBUG).
+# The software renderer and plugins like layerExImage are CPU-bound; Debug (-Og) is several times slower.
+set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+
 add_subdirectory(cocos2dx)
 
 set(K2_SRC ${CMAKE_CURRENT_LIST_DIR}/../../src)
@@ -130,10 +135,16 @@ target_link_libraries(krkr2core PUBLIC cocos2d)
 set(PLUGIN_SRC)
 k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/*.cpp ${K2_SRC}/plugins/*.c)
 # plugins the APK ships but the public source lacks (docs/PLUGINS.md), one folder each
-k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/extrans/*.cpp ${K2_SRC}/plugins/layerExImage/*.cpp)
+k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/extrans/*.cpp ${K2_SRC}/plugins/layerExImage/*.cpp
+                   ${K2_SRC}/plugins/fstat/*.cpp ${K2_SRC}/plugins/layerExDraw/*.cpp)
 list(APPEND PLUGIN_SRC ${K2_SRC}/plugins/ncbind/ncbind.cpp)
+# fstat (from krkr2) uses std::filesystem
+set_source_files_properties(${K2_SRC}/plugins/fstat/main.cpp PROPERTIES COMPILE_OPTIONS "-std=gnu++17")
+# layerExDraw (from krkr2) is C++17 on blend2d (tools/portlibs/build_blend2d.sh)
+set_source_files_properties(${K2_SRC}/plugins/layerExDraw/LayerExDraw.cpp PROPERTIES COMPILE_OPTIONS "-std=gnu++17")
 add_library(kr2plugin STATIC ${PLUGIN_SRC})
-target_include_directories(kr2plugin PRIVATE ${K2_SRC}/plugins ${K2_SRC}/plugins/ncbind ${CORE})
+target_include_directories(kr2plugin PRIVATE ${K2_SRC}/plugins ${K2_SRC}/plugins/ncbind ${CORE}
+                           ${DKP_PORTLIBS}/include/freetype2)
 target_compile_options(kr2plugin PRIVATE ${K2_CXX_FLAGS} -fvisibility=hidden)
 set_target_properties(kr2plugin PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED ON)
 target_link_libraries(kr2plugin PUBLIC krkr2core)
@@ -155,7 +166,7 @@ target_link_libraries(kirikiroid2 PRIVATE
   krkr2core
   ${PL}/libavformat.a ${PL}/libavfilter.a ${PL}/libavcodec.a ${PL}/libswscale.a ${PL}/libswresample.a ${PL}/libavutil.a
   ${PL}/libopencv_imgproc.a ${PL}/libopencv_core.a ${K2S_PORTLIBS}/share/OpenCV/3rdparty/lib/libtegra_hal.a
-  ${PL}/libunrar.a ${PL}/libbpg.a ${PL}/libjxr.a ${PL}/libiconv.a
+  ${PL}/libblend2d.a ${PL}/libunrar.a ${PL}/libbpg.a ${PL}/libjxr.a ${PL}/libiconv.a
   onig openal opusfile opus vorbisfile vorbis ogg archive lzma bz2 zstd lz4 expat
   SDL2 turbojpeg jpeg webp png16 freetype bz2 z
   cocos2d
@@ -164,5 +175,5 @@ target_link_libraries(kirikiroid2 PRIVATE
 # NRO metadata shown by hbmenu / app stores. Icon = Kirikiroid2's original launcher icon (APK
 # res/drawable-xxhdpi-v4/ic_launcher.png) scaled to 256x256 by make_icon.py (see tools/prepare_assets.sh).
 set(K2NX_ASSETS ${CMAKE_CURRENT_LIST_DIR}/../../../build)
-nx_generate_nacp(kirikiroid2.nacp NAME "Kirikiroid2-NX" AUTHOR "Erige005 (Kirikiroid2 by zeas2)" VERSION "0.1.0-alpha")
+nx_generate_nacp(kirikiroid2.nacp NAME "Kirikiroid2-NX" AUTHOR "Erige005 (Kirikiroid2 by zeas2)" VERSION "0.1.1-alpha")
 nx_create_nro(kirikiroid2 NACP kirikiroid2.nacp ICON ${K2NX_ASSETS}/icon.jpg ROMFS ${K2NX_ASSETS}/romfs)

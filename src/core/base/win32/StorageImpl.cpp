@@ -742,6 +742,11 @@ tTVPLocalFileStream::tTVPLocalFileStream(const ttstr &origname,
     : MemBuffer(nullptr), FileName(localname), Handle(-1)
 {
 	tjs_uint32 access = flag & TJS_BS_ACCESS_MASK;
+#ifdef __SWITCH__
+	// [K2S] diagnostics for save/load problems: log every access to a game's save folder
+	if (TJS_strstr(localname.c_str(), TJS_W("savedata")))
+		printf("[K2S] open(%u) %s\n", (unsigned)access, localname.AsStdString().c_str());
+#endif
     if(access == TJS_BS_WRITE) {
         if (TVPCheckExistentLocalFile(localname)) {
         } else {
