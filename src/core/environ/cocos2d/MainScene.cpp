@@ -2323,6 +2323,17 @@ void TVPMainScene::onAxisEvent(cocos2d::Controller* ctrl, int keyCode, cocos2d::
 }
 
 void TVPMainScene::onPadKeyDown(cocos2d::Controller* ctrl, int keyCode, cocos2d::Event *e) {
+#ifdef __SWITCH__
+	// [K2S] Kirikiroid2's own UI (file selector, preferences, dialogs) only knows the Android back key:
+	// B acts as that key there (close menu/dialog, go back); everything else in the UI is touch.
+	if (!UINode->getChildren().empty()) {
+		if (keyCode == cocos2d::Controller::BUTTON_B) {
+			iTVPBaseForm* uiform = dynamic_cast<iTVPBaseForm*>(UINode->getChildren().back());
+			if (uiform) uiform->onKeyPressed(EventKeyboard::KeyCode::KEY_BACK, e);
+		}
+		return;
+	}
+#endif
 	if (!UINode->getChildren().empty()) return;
 #ifdef __SWITCH__
 	// [K2S] with the virtual mouse cursor shown, A = left click and B = right click at the cursor

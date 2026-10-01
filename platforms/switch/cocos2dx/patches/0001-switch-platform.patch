@@ -246,6 +246,28 @@ index e326a7f..ef52a72 100644
  
  #include "base/CCEventDispatcher.h"
  #include "base/CCEventController.h"
+diff --git a/cocos/base/CCEventDispatcher.cpp b/cocos/base/CCEventDispatcher.cpp
+index 9be52d8..ce4cdd0 100644
+--- a/cocos/base/CCEventDispatcher.cpp
++++ b/cocos/base/CCEventDispatcher.cpp
+@@ -31,7 +31,7 @@
+ #include "base/CCEventListenerKeyboard.h"
+ #include "base/CCEventListenerCustom.h"
+ #include "base/CCEventListenerFocus.h"
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_IOS) || defined(__SWITCH__) // [K2S]
+ #include "base/CCEventListenerController.h"
+ #endif
+ #include "2d/CCScene.h"
+@@ -94,7 +94,7 @@ static EventListener::ListenerID __getListenerID(Event* event)
+             // return UNKNOWN instead.
+             CCASSERT(false, "Don't call this method if the event is for touch.");
+             break;
+-#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_IOS)
++#if (CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID || CC_TARGET_PLATFORM == CC_PLATFORM_IOS) || defined(__SWITCH__) // [K2S]
+         case Event::Type::GAME_CONTROLLER:
+             ret = EventListenerController::LISTENER_ID;
+             break;
 diff --git a/cocos/base/CCEventMouse.h b/cocos/base/CCEventMouse.h
 index 8bfc72e..72f39a0 100644
 --- a/cocos/base/CCEventMouse.h
