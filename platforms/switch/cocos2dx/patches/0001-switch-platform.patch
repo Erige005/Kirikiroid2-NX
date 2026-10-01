@@ -49,29 +49,161 @@ index 41e16b0..2246cb3 100644
  
 diff --git a/cocos/base/CCController-switch.cpp b/cocos/base/CCController-switch.cpp
 new file mode 100644
-index 0000000..6fca2ea
+index 0000000..35135d4
 --- /dev/null
 +++ b/cocos/base/CCController-switch.cpp
-@@ -0,0 +1,48 @@
-+// [K2S] Platform part of cocos2d::Controller for Nintendo Switch.
-+// Phase 1: no controllers are reported (touch-first, D-007). Phase 2 will poll libnx pads here and
-+// feed onButtonEvent/onAxisEvent like CCController-android.cpp does.
+@@ -0,0 +1,180 @@
++// [K2S] Platform part of cocos2d::Controller for Nintendo Switch (libnx pads).
++// Joy-Con (attached, dual or single), Pro Controller and handheld mode all come through libnx's default pad,
++// which is reported as one controller and fed to cocos like CCController-android.cpp does. Kirikiroid2 then
++// handles the buttons exactly as on Android (TVPMainScene::onPadKeyDown / onAxisEvent).
 +#include "base/CCController.h"
 +
 +#ifdef __SWITCH__
++#include <switch.h>
++#include <cmath>
 +#include "base/CCEventController.h"
++#include "base/CCEventKeyboard.h"
++#include "base/CCDirector.h"
++#include "base/CCEventDispatcher.h"
 +
 +NS_CC_BEGIN
++
++namespace {
++struct ButtonMap { u64 npad; int key; };
++// Nintendo layout: A (right) = confirm, B (bottom) = cancel, as cocos/Android BUTTON_A / BUTTON_B
++const ButtonMap kButtons[] = {
++    { HidNpadButton_A, Controller::BUTTON_A },
++    { HidNpadButton_B, Controller::BUTTON_B },
++    { HidNpadButton_X, Controller::BUTTON_X },
++    { HidNpadButton_Y, Controller::BUTTON_Y },
++    { HidNpadButton_L, Controller::BUTTON_LEFT_SHOULDER },
++    { HidNpadButton_R, Controller::BUTTON_RIGHT_SHOULDER },
++    { HidNpadButton_ZL, Controller::AXIS_LEFT_TRIGGER },
++    { HidNpadButton_ZR, Controller::AXIS_RIGHT_TRIGGER },
++    { HidNpadButton_StickL, Controller::BUTTON_LEFT_THUMBSTICK },
++    { HidNpadButton_StickR, Controller::BUTTON_RIGHT_THUMBSTICK },
++    { HidNpadButton_Plus, Controller::BUTTON_START },
++    { HidNpadButton_Up, Controller::BUTTON_DPAD_UP },
++    { HidNpadButton_Down, Controller::BUTTON_DPAD_DOWN },
++    { HidNpadButton_Left, Controller::BUTTON_DPAD_LEFT },
++    { HidNpadButton_Right, Controller::BUTTON_DPAD_RIGHT },
++};
++// buttons that switch-glfw turns into keyboard keys (switch_joystick.c MAP_KEY) - see k2sIsEmulatedPadKey()
++struct GlfwKeyMap { int glfwKey; u64 npad; };
++const GlfwKeyMap kGlfwEmulated[] = {
++    { 265 /*UP*/, HidNpadButton_Up }, { 264 /*DOWN*/, HidNpadButton_Down },
++    { 263 /*LEFT*/, HidNpadButton_Left }, { 262 /*RIGHT*/, HidNpadButton_Right },
++    { 88 /*X*/, HidNpadButton_A }, { 90 /*Z*/, HidNpadButton_B }, { 83 /*S*/, HidNpadButton_X },
++    { 65 /*A*/, HidNpadButton_Y }, { 257 /*ENTER*/, HidNpadButton_Plus }, { 256 /*ESCAPE*/, HidNpadButton_Minus },
++};
++
++PadState s_pad;
++bool s_padInited = false;
++u64 s_prevHeld = 0;
++float s_prevAxis[4] = { 0, 0, 0, 0 };
++bool s_swallowed[512];
++
++void initPad()
++{
++    if (s_padInited) return;
++    padConfigureInput(1, HidNpadStyleSet_NpadStandard);
++    padInitializeDefault(&s_pad);
++    s_padInited = true;
++}
++} // namespace
 +
 +class ControllerImpl
 +{
 +public:
 +    explicit ControllerImpl(Controller* controller) : _controller(controller) {}
++
++    static Controller* get()
++    {
++        if (Controller::s_allController.empty())
++        {
++            auto controller = new Controller();
++            controller->_deviceId = 0;
++            controller->_deviceName = "Nintendo Switch controller";
++            Controller::s_allController.push_back(controller);
++            controller->onConnected();
++        }
++        return Controller::s_allController.front();
++    }
++
++    static void poll()
++    {
++        initPad();
++        padUpdate(&s_pad);
++        if (!padIsConnected(&s_pad)) return;
++        Controller* c = get();
++
++        const u64 held = padGetButtons(&s_pad);
++        const u64 changed = held ^ s_prevHeld;
++        for (const ButtonMap& b : kButtons)
++        {
++            if (changed & b.npad)
++            {
++                const bool down = (held & b.npad) != 0;
++                c->onButtonEvent(b.key, down, down ? 1.f : 0.f, false);
++            }
++        }
++        // Minus = the Kirikiroid2 in-game menu (the Android menu key): virtual mouse, exit, ...
++        if (changed & HidNpadButton_Minus)
++        {
++            EventKeyboard ev(EventKeyboard::KeyCode::KEY_MENU, (held & HidNpadButton_Minus) != 0);
++            Director::getInstance()->getEventDispatcher()->dispatchEvent(&ev);
++        }
++        s_prevHeld = held;
++
++        // sticks: -1..1, y down = positive (Android convention, which Kirikiroid2 expects). Sent every frame
++        // while deflected, because Kirikiroid2 moves the virtual cursor by one step per event.
++        const HidAnalogStickState l = padGetStickPos(&s_pad, 0), r = padGetStickPos(&s_pad, 1);
++        const float axis[4] = { l.x / 32767.f, -l.y / 32767.f, r.x / 32767.f, -r.y / 32767.f };
++        const int codes[4] = { Controller::JOYSTICK_LEFT_X, Controller::JOYSTICK_LEFT_Y,
++                               Controller::JOYSTICK_RIGHT_X, Controller::JOYSTICK_RIGHT_Y };
++        for (int i = 0; i < 4; ++i)
++        {
++            if (std::fabs(axis[i]) > 0.05f || std::fabs(s_prevAxis[i]) > 0.05f)
++                c->onAxisEvent(codes[i], axis[i], true);
++            s_prevAxis[i] = axis[i];
++        }
++    }
++
 +private:
 +    Controller* _controller;
 +};
 +
-+void Controller::startDiscoveryController() {}
++// called from GLViewImpl::pollEvents (CCGLViewImpl-desktop.cpp)
++void k2sPollControllers() { ControllerImpl::poll(); }
++
++// switch-glfw always turns some pad buttons into keyboard keys; Controller events already carry them, so the
++// GLFW key callback drops those (a real USB keyboard still works while no pad button is involved).
++bool k2sIsEmulatedPadKey(int glfwKey, bool press)
++{
++    if (glfwKey < 0 || glfwKey >= 512) return false;
++    if (!press)
++    {
++        const bool s = s_swallowed[glfwKey];
++        s_swallowed[glfwKey] = false;
++        return s;
++    }
++    initPad();
++    PadState now = s_pad;
++    padUpdate(&now);
++    const u64 held = padGetButtons(&now);
++    for (const GlfwKeyMap& m : kGlfwEmulated)
++    {
++        if (m.glfwKey == glfwKey && (held & m.npad))
++        {
++            s_swallowed[glfwKey] = true;
++            return true;
++        }
++    }
++    return false;
++}
++
++void Controller::startDiscoveryController() { initPad(); }
 +void Controller::stopDiscoveryController() {}
 +
 +Controller::~Controller()
@@ -84,7 +216,7 @@ index 0000000..6fca2ea
 +
 +void Controller::registerListeners() {}
 +
-+bool Controller::isConnected() const { return true; }
++bool Controller::isConnected() const { return s_padInited && padIsConnected(&s_pad); }
 +
 +Controller::Controller()
 +    : _controllerTag(TAG_UNSET)
@@ -233,7 +365,7 @@ index 86e80f1..e1b9fc0 100644
      // Getters
      inline unsigned char *   getData()               { return _data; }
 diff --git a/cocos/platform/desktop/CCGLViewImpl-desktop.cpp b/cocos/platform/desktop/CCGLViewImpl-desktop.cpp
-index f897df2..e81293d 100644
+index f897df2..1f27c96 100644
 --- a/cocos/platform/desktop/CCGLViewImpl-desktop.cpp
 +++ b/cocos/platform/desktop/CCGLViewImpl-desktop.cpp
 @@ -39,6 +39,16 @@ THE SOFTWARE.
@@ -305,7 +437,7 @@ index f897df2..e81293d 100644
  
      return true;
  }
-@@ -487,9 +515,75 @@ bool GLViewImpl::windowShouldClose()
+@@ -487,9 +515,81 @@ bool GLViewImpl::windowShouldClose()
          return true;
  }
  
@@ -372,16 +504,33 @@ index f897df2..e81293d 100644
 +}
 +#endif
 +
++#ifdef __SWITCH__
++void k2sPollControllers();                          // CCController-switch.cpp
++bool k2sIsEmulatedPadKey(int glfwKey, bool press);  // CCController-switch.cpp
++#endif
++
  void GLViewImpl::pollEvents()
  {
      glfwPollEvents();
 +#ifdef __SWITCH__
 +    switchPollTouches(this);
++    k2sPollControllers();
 +#endif
  }
  
  void GLViewImpl::enableRetina(bool enabled)
-@@ -900,7 +994,15 @@ static bool glew_dynamic_binding()
+@@ -722,6 +822,10 @@ void GLViewImpl::onGLFWMouseScrollCallback(GLFWwindow* window, double x, double
+ 
+ void GLViewImpl::onGLFWKeyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+ {
++#ifdef __SWITCH__
++    // [K2S] pad buttons arrive as cocos2d::Controller events; drop switch-glfw's keyboard emulation of them
++    if (GLFW_REPEAT != action && k2sIsEmulatedPadKey(key, GLFW_PRESS == action)) return;
++#endif
+     if (GLFW_REPEAT != action)
+     {
+         EventKeyboard event(g_keyCodeMap[key], GLFW_PRESS == action);
+@@ -900,7 +1004,15 @@ static bool glew_dynamic_binding()
  // helper
  bool GLViewImpl::initGlew()
  {

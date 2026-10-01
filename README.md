@@ -9,7 +9,7 @@ Kirikiroid2-NX is built from **zeas2's original Kirikiroid2 1.3.9 source code** 
 TJS2 script engine, KAG/KAGEX support, XP3 archives and `xp3filter.tjs` decryption support, and the same
 file-selector UI you know from the Android app — running natively as a Switch homebrew `.nro`.
 
-> **Status: v0.1.1-alpha (preview).** Real games already run (video, voice, BGM, text, menus, transitions), but
+> **Status: v0.1.2-alpha (preview).** Real games already run (video, voice, BGM, text, menus, transitions), but
 > this is an early release: some games have save problems and a few features are still missing. See
 > [Known issues](#known-issues). Bug reports are very welcome.
 
@@ -27,7 +27,9 @@ file-selector UI you know from the Android app — running natively as a Switch 
 - Copy the game folder to the SD card **exactly as you would for Kirikiroid2 on Android** (e.g.
   `sdmc:/kirikiri/<game>/` containing `data.xp3` and the other `.xp3` files). No conversion is needed.
 - Browse to it in the file selector and tap `data.xp3` (or the folder with `startup.tjs`).
-- Controls (v0.1): **touchscreen**, like on a phone. Joy-Con / docked TV support is planned.
+- Controls: **touchscreen** (like on a phone) and **Joy-Con / Pro Controller** (handheld, attached or wireless):
+  A = advance / confirm, B = cancel / right-click, D-pad = select, X / Y / L / R / ZL / ZR / + as on Android
+  Kirikiroid2, **left stick = mouse cursor** (A / B click at the cursor), **− = Kirikiroid2 menu**.
 - Only use games you legally own. No game data is included in or distributed with this project.
 
 ## What works
@@ -37,7 +39,8 @@ file-selector UI you know from the Android app — running natively as a Switch 
 - Transitions: crossfade, universal, scroll **+ extrans** (wave, mosaic, turn, rotatezoom, rotatevanish,
   rotateswap, ripple).
 - Layer effects from **layerExImage** (light, colorize, modulate, noise, gaussianBlur).
-- **layerExDraw** (GDI+-style vector/text drawing, on Blend2D) and **fstat** (file/directory functions).
+- **layerExDraw** (GDI+-style vector/text drawing, on Blend2D), **fstat** (file/directory functions) and
+  **AlphaMovie** (`.amv` alpha movies).
 - Original Kirikiroid2 UI (file selector, preferences), multi-touch, Switch software keyboard for text input.
 
 ## Known issues
@@ -75,7 +78,7 @@ Kirikiroid2 1.3.9 APK release; they are not stored in this repository. Source ch
 marked with `[K2S]` in the code.
 
 ## Credits
-- **Erige005** (Vietnam) — Kirikiroid2-NX creator & maintainer — [github.com/Erige005](https://github.com/Erige005) ·
+- **Erige005** (from Vietnam) — Kirikiroid2-NX creator & maintainer — [github.com/Erige005](https://github.com/Erige005) ·
   gkdm.2k5@gmail.com
 - **zeas2** — [Kirikiroid2](https://github.com/zeas2/Kirikiroid2), the Android/iOS port this project is based on.
 - **W.Dee and contributors** — KiriKiri2 / KiriKiri Z (吉里吉里).

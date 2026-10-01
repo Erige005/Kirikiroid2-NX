@@ -109,6 +109,8 @@ set(CORE_INC
   ${K2S_PORTLIBS}/include/jxrlib
 )
 
+# Kirikiroid2-NX version: NACP (hbmenu) and the About/credits text
+set(K2NX_VERSION "0.1.2-alpha")
 set(K2_DEFS TJS_TEXT_OUT_CRLF __STDC_CONSTANT_MACROS USE_UNICODE_FSTRING _7ZIP_ST typeof=decltype)
 # -fno-delete-null-pointer-checks: TJS2 (tTJSVariantString::GetLength etc.) tests `if (!this)` because an
 # empty ttstr holds a NULL pointer. The 2018 NDK clang kept those checks; GCC 15 deletes them (UB) and
@@ -136,7 +138,8 @@ set(PLUGIN_SRC)
 k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/*.cpp ${K2_SRC}/plugins/*.c)
 # plugins the APK ships but the public source lacks (docs/PLUGINS.md), one folder each
 k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/extrans/*.cpp ${K2_SRC}/plugins/layerExImage/*.cpp
-                   ${K2_SRC}/plugins/fstat/*.cpp ${K2_SRC}/plugins/layerExDraw/*.cpp)
+                   ${K2_SRC}/plugins/fstat/*.cpp ${K2_SRC}/plugins/layerExDraw/*.cpp
+                   ${K2_SRC}/plugins/AlphaMovie/*.cpp)
 list(APPEND PLUGIN_SRC ${K2_SRC}/plugins/ncbind/ncbind.cpp)
 # fstat (from krkr2) uses std::filesystem
 set_source_files_properties(${K2_SRC}/plugins/fstat/main.cpp PROPERTIES COMPILE_OPTIONS "-std=gnu++17")
@@ -175,5 +178,8 @@ target_link_libraries(kirikiroid2 PRIVATE
 # NRO metadata shown by hbmenu / app stores. Icon = Kirikiroid2's original launcher icon (APK
 # res/drawable-xxhdpi-v4/ic_launcher.png) scaled to 256x256 by make_icon.py (see tools/prepare_assets.sh).
 set(K2NX_ASSETS ${CMAKE_CURRENT_LIST_DIR}/../../../build)
-nx_generate_nacp(kirikiroid2.nacp NAME "Kirikiroid2-NX" AUTHOR "Erige005 (Kirikiroid2 by zeas2)" VERSION "0.1.1-alpha")
+nx_generate_nacp(kirikiroid2.nacp NAME "Kirikiroid2-NX" AUTHOR "Erige005 (Kirikiroid2 by zeas2)" VERSION "${K2NX_VERSION}")
 nx_create_nro(kirikiroid2 NACP kirikiroid2.nacp ICON ${K2NX_ASSETS}/icon.jpg ROMFS ${K2NX_ASSETS}/romfs)
+
+# credits text (environ/switch/K2SCredits.cpp) shows the same version as the NACP
+set_source_files_properties(${CORE}/environ/switch/K2SCredits.cpp PROPERTIES COMPILE_DEFINITIONS "K2NX_VERSION=\"${K2NX_VERSION}\"")

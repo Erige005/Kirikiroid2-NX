@@ -56,6 +56,9 @@ static std::set<Touch*> _mouseTouches;
 static tTVPMouseButton _mouseBtn;
 static int _touchBeginTick;
 static bool _virutalMouseMode = false;
+#ifdef __SWITCH__
+static bool _k2sStickCursor = false; // [K2S] virtual cursor shown by the left stick (see onAxisEvent)
+#endif
 static bool _mouseMoved, _mouseClickedDown;
 static tjs_uint8 _scancode[0x200];
 static tjs_uint16 _keymap[0x200];
@@ -1214,7 +1217,7 @@ public:
 	virtual void OnKeyPress(tjs_uint16 vk, int repeat, bool prevkeystate, bool convertkey) override {
 		if (TJSNativeInstance && vk) {
 			if (UseMouseKey && (vk == 0x1b || vk == 13 || vk == 32)) return;
-			// UNICODE ¤Ê¤Î¤Ç¤½¤Î¤Þ¤Þ¶É¤·¤Æ¤·¤Þ¤¦
+			// UNICODE ï¿½Ê¤Î¤Ç¤ï¿½ï¿½Î¤Þ¤Þ¶É¤ï¿½ï¿½Æ¤ï¿½ï¿½Þ¤ï¿½
 			TVPPostInputEvent(new tTVPOnKeyPressInputEvent(TJSNativeInstance, vk));
 		}
 	}
@@ -1354,7 +1357,7 @@ public:
 						// this is the main window
 						iTJSDispatch2 * obj = TJSNativeInstance->GetOwnerNoAddRef();
 						obj->Invalidate(0, NULL, NULL, obj);
-						// TJSNativeInstance = NULL; // ¤³¤Î¶ÎëA¤Ç¤Ï¼È¤Ëthis¤¬Ï÷³ý¤µ¤ì¤Æ¤¤¤ë¤¿¤á¡¢¥á¥ó¥Ð©`¤Ø¥¢¥¯¥»¥¹¤·¤Æ¤Ï¤¤¤±¤Ê¤¤
+						// TJSNativeInstance = NULL; // ï¿½ï¿½ï¿½Î¶ï¿½ï¿½Aï¿½Ç¤Ï¼È¤ï¿½thisï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¤ï¿½ï¿½ë¤¿ï¿½á¡¢ï¿½ï¿½ï¿½Ð©`ï¿½Ø¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¤Ï¤ï¿½ï¿½ï¿½ï¿½Ê¤ï¿½
 					}
 				} else {
 					delete this;
@@ -2075,6 +2078,10 @@ bool TVPMainScene::isVirtualMouseMode() const {
 bool TVPMainScene::onTouchBegan(cocos2d::Touch *touch, cocos2d::Event *event) {
 	if (UINode->getChildrenCount()) return false;
 	if (!_currentWindowLayer) return false;
+#ifdef __SWITCH__
+	// [K2S] a cursor that the stick turned on goes away when the touchscreen is used again
+	if (_k2sStickCursor && _virutalMouseMode) { showVirtualMouseCursor(false); _k2sStickCursor = false; }
+#endif
 	if (!_virutalMouseMode || _windowMgrOverlay) return _currentWindowLayer->onTouchBegan(touch, event);
 	_mouseTouches.insert(touch);
 	switch (_mouseTouches.size()) {
@@ -2252,6 +2259,36 @@ void TVPMainScene::onTextInput(const std::string &text) {
 
 void TVPMainScene::onAxisEvent(cocos2d::Controller* ctrl, int keyCode, cocos2d::Event *e) {
 	if (!_currentWindowLayer || !_currentWindowLayer->PrimaryLayerArea) return;
+#ifdef __SWITCH__
+	// [K2S] pushing the left stick shows the virtual mouse cursor (no need to enable it in the menu first)
+	if (!_virutalMouseMode && !_windowMgrOverlay && UINode->getChildren().empty() &&
+		(keyCode == cocos2d::Controller::JOYSTICK_LEFT_X || keyCode == cocos2d::Controller::JOYSTICK_LEFT_Y) &&
+		std::abs(ctrl->getKeyStatus(keyCode).value) > 0.5f) {
+		showVirtualMouseCursor(true);
+		_k2sStickCursor = true;
+	}
+	// [K2S] move the cursor in GameNode space (y up; the stick's y is down-positive). The generic code below
+	// mixes the window's y-down mouse coordinates with node space, which flips the cursor vertically.
+	if (_virutalMouseMode && !_windowMgrOverlay && _mouseCursor &&
+		(keyCode == cocos2d::Controller::JOYSTICK_LEFT_X || keyCode == cocos2d::Controller::JOYSTICK_LEFT_Y)) {
+		const float dead = 0.15f;
+		float v = ctrl->getKeyStatus(keyCode).value;
+		if (std::abs(v) < dead) return;
+		v = (v > 0 ? v - dead : v + dead) / (1 - dead);
+		Vec2 pt = _mouseCursor->getPosition();
+		const float step = 12.f * v * std::abs(v) + (v > 0 ? 1.f : -1.f);	// fine control near the center
+		if (keyCode == cocos2d::Controller::JOYSTICK_LEFT_X) pt.x += step; else pt.y -= step;
+		Size size = GameNode->getContentSize();
+		pt.x = std::max(0.f, std::min(pt.x, size.width));
+		pt.y = std::max(0.f, std::min(pt.y, size.height));
+		_mouseCursor->stopAllActions();
+		_mouseCursor->setOpacity(255);
+		_mouseCursor->setPosition(pt);
+		_refadeMouseCursor();
+		_currentWindowLayer->onMouseMove(GameNode->convertToWorldSpace(pt));
+		return;
+	}
+#endif
 	if (!_virutalMouseMode || _windowMgrOverlay) return;
 	const float threashold = 0.1f;
 	const cocos2d::Controller::KeyStatus& keyStatus = ctrl->getKeyStatus(keyCode);
@@ -2287,6 +2324,16 @@ void TVPMainScene::onAxisEvent(cocos2d::Controller* ctrl, int keyCode, cocos2d::
 
 void TVPMainScene::onPadKeyDown(cocos2d::Controller* ctrl, int keyCode, cocos2d::Event *e) {
 	if (!UINode->getChildren().empty()) return;
+#ifdef __SWITCH__
+	// [K2S] with the virtual mouse cursor shown, A = left click and B = right click at the cursor
+	if (_virutalMouseMode && !_windowMgrOverlay && _mouseCursor && _currentWindowLayer &&
+		(keyCode == cocos2d::Controller::BUTTON_A || keyCode == cocos2d::Controller::BUTTON_B)) {
+		_mouseBtn = keyCode == cocos2d::Controller::BUTTON_A ? ::mbLeft : ::mbRight;
+		_currentWindowLayer->onMouseClick(GameNode->convertToWorldSpace(_mouseCursor->getPosition()));
+		_mouseBtn = ::mbLeft;
+		return;
+	}
+#endif
 	unsigned int code = TVPConvertPadKeyCodeToVKCode(keyCode);
 	if (!code || code >= 0x200) return;
 	code = _keymap[code];
