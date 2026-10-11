@@ -9,9 +9,8 @@ Kirikiroid2-NX is built from **zeas2's original Kirikiroid2 1.3.9 source code** 
 TJS2 script engine, KAG/KAGEX support, XP3 archives and `xp3filter.tjs` decryption support, and the same
 file-selector UI you know from the Android app — running natively as a Switch homebrew `.nro`.
 
-> **Status: v0.1.2-alpha (preview).** Real games already run (video, voice, BGM, text, menus, transitions), but
-> this is an early release: some games have save problems and a few features are still missing. See
-> [Known issues](#known-issues). Bug reports are very welcome.
+> **Status: v1.0.0.** Real games run from start to finish (video, voice, BGM, text, menus, transitions, saves).
+> A few plugins and features are still missing — see [Known issues](#known-issues). Bug reports are very welcome.
 
 ## Requirements
 - A Nintendo Switch running custom firmware (Atmosphère) — any model (Erista, Mariko, OLED, Lite).
@@ -42,6 +41,9 @@ file-selector UI you know from the Android app — running natively as a Switch 
 - **layerExDraw** (GDI+-style vector/text drawing, on Blend2D), **fstat** (file/directory functions) and
   **AlphaMovie** (`.amv` alpha movies).
 - Original Kirikiroid2 UI (file selector, preferences), multi-touch, Switch software keyboard for text input.
+- Switch performance work: NEON blend routines, CPU boost mode (the official 1785 MHz mode retail games use on
+  loading screens, software renderer only — not an overclock), fast bilinear scaling, one-pass `xp3filter.tjs`
+  decoding of archived files.
 
 ## Known issues
 - System message boxes that ask Yes/No always pick the first button (a proper modal dialog is being written).

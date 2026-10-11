@@ -15,9 +15,10 @@ static void setupLogging()
     remove("sdmc:/switch/kirikiroid2/k2s_log.prev.txt");
     rename("sdmc:/switch/kirikiroid2/k2s_log.txt", "sdmc:/switch/kirikiroid2/k2s_log.prev.txt");
     if (freopen("sdmc:/switch/kirikiroid2/k2s_log.txt", "w", stdout)) {
-        // line-buffered: unbuffered stdout made every character a separate SD-card write (slow when
-        // engines/scripts log a lot). Crashes still keep everything up to the last complete line.
-        setvbuf(stdout, nullptr, _IOLBF, 4096);
+        // block-buffered: even line buffering meant one SD-card write per line, and KAG games log every
+        // executed tag (~350 lines/s in Akatsuki no Goei → 6 fps). TVPMainScene::update() flushes once a
+        // second; exit() and the crash handler (K2SBootLog.cpp) flush the rest.
+        setvbuf(stdout, nullptr, _IOFBF, 256 * 1024);
         dup2(fileno(stdout), fileno(stderr));
     }
     printf("Kirikiroid2-Switch log (build " __DATE__ " " __TIME__ ")\n");
@@ -38,6 +39,7 @@ int main(int argc, char **argv)
     K2SBootMark("6 app delegate created, entering run()");
     int rc = cocos2d::Application::getInstance()->run();
     K2SBootMark("7 run() returned");
+    appletSetCpuBoostMode(ApmCpuBoostMode_Normal); // K2SApplyCpuBoost() in SwitchUtils.cpp
 
     romfsExit();
     socketExit();

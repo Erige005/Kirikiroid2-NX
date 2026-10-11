@@ -110,7 +110,7 @@ set(CORE_INC
 )
 
 # Kirikiroid2-NX version: NACP (hbmenu) and the About/credits text
-set(K2NX_VERSION "0.1.2-alpha")
+set(K2NX_VERSION "1.0.0")
 set(K2_DEFS TJS_TEXT_OUT_CRLF __STDC_CONSTANT_MACROS USE_UNICODE_FSTRING _7ZIP_ST typeof=decltype)
 # -fno-delete-null-pointer-checks: TJS2 (tTJSVariantString::GetLength etc.) tests `if (!this)` because an
 # empty ttstr holds a NULL pointer. The 2018 NDK clang kept those checks; GCC 15 deletes them (UB) and

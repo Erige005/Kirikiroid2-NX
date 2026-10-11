@@ -593,6 +593,20 @@ tTJSBinaryStream * tTVPXP3Archive::CreateStreamByIndex(tjs_uint idx)
 				return memstr;
 			}
 		}
+#ifdef __SWITCH__
+		// [K2S] the extraction filter runs once per Read() call. With a script filter (xp3filter.tjs,
+		// e.g. Mahoutsukai no Yoru's cxdec) every call executes hundreds of TJS ops, and image decoders
+		// issue thousands of tiny reads: loading one scene took 3-4 s. Filters are position-based, so
+		// decoding the whole storage in one pass (like XP3_CONTENT_FILTER_FETCH_FULLDATA above) gives
+		// the same bytes. Big storages (BGM/movies) stay streamed.
+		if (TVPXP3ArchiveExtractionFilter && item.OrgSize > 0 && item.OrgSize <= 8 * 1024 * 1024) {
+			tTVPMemoryStream *memstr = new tTVPMemoryStream();
+			memstr->SetSize(item.OrgSize);
+			out->ReadBuffer(memstr->GetInternalBuffer(), (tjs_uint)item.OrgSize);
+			delete out;
+			return memstr;
+		}
+#endif
 	}
 	catch(...)
 	{

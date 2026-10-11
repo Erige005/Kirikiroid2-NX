@@ -1271,6 +1271,9 @@ static void TVPDumpOptions();
 extern bool TVPEnableGlobalHeapCompaction;
 extern void TVPGL_SSE2_Init();
 extern "C" void TVPGL_ASM_Init();
+#ifdef __SWITCH__
+void K2SApplyCpuBoost(); // environ/switch/SwitchUtils.cpp
+#endif
 extern bool TVPAutoSaveBookMark;
 static bool TVPHighTimerPeriod = false;
 static uint32_t TVPTimeBeginPeriodRes = 0;
@@ -1393,6 +1396,9 @@ void TVPAfterSystemInit()
 	TVPGL_SSE2_Init();
 #endif
 	TVPGL_ASM_Init();
+#ifdef __SWITCH__
+	K2SApplyCpuBoost();
+#endif
 
 	// timer precision
 	uint32_t prectick = 1;

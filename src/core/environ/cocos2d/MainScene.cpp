@@ -1796,8 +1796,25 @@ void TVPMainScene::doStartup(float dt, std::string path) {
 extern ttstr TVPGetErrorDialogTitle();
 void TVPOnError();
 tjs_uint TVPGetGraphicCacheTotalBytes();
+#ifdef __SWITCH__
+void K2SRenderProfDump(bool print);
+#endif
 void TVPMainScene::update(float delta) {
+#ifdef __SWITCH__
+	// [K2S] perf probe: log engine ticks (events + scripts + drawing) that stall the frame.
+	tjs_uint32 k2sTick0 = TVPGetRoughTickCount32();
 	::Application->Run();
+	tjs_uint32 k2sTickMs = TVPGetRoughTickCount32() - k2sTick0;
+	if (k2sTickMs >= 100) printf("[K2S] slow tick %u ms\n", (unsigned)k2sTickMs);
+	K2SRenderProfDump(k2sTickMs >= 100); // visual/RenderManager.cpp
+	static tjs_uint32 k2sLastFlush = 0; // stdout is block-buffered (switch/main.cpp)
+	if (k2sTick0 - k2sLastFlush >= 1000) {
+		fflush(stdout);
+		k2sLastFlush = k2sTick0;
+	}
+#else
+	::Application->Run();
+#endif
 //	if (_currentWindowLayer) _currentWindowLayer->UpdateOverlay();
 	iTVPTexture2D::RecycleProcess();
 	//_ResotreGLStatues();

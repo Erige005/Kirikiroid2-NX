@@ -1474,12 +1474,18 @@ tjs_int tTJSInterCodeContext::ExecuteCode(tTJSVariant *ra_org, tjs_int startip,
 	{
 		DEBUGGER_EXCEPTION_HOOK;
 		DisplayExceptionGeneratedCode((tjs_int)(codesave - CodeArea), ra_org);
+#ifdef __SWITCH__
+		Block->GetTJS()->OutputToConsole((ttstr(TJS_W("-- [K2S] message: ")) + e.GetMessage()).c_str());
+#endif
 		TJS_eTJSScriptError(e.GetMessage(), this, (tjs_int)(codesave-CodeArea));
 	}
 	catch(exception &e)
 	{
 		DEBUGGER_EXCEPTION_HOOK;
 		DisplayExceptionGeneratedCode((tjs_int)(codesave - CodeArea), ra_org);
+#ifdef __SWITCH__
+		Block->GetTJS()->OutputToConsole((ttstr(TJS_W("-- [K2S] message: ")) + ttstr(e.what())).c_str());
+#endif
 		TJS_eTJSScriptError(e.what(), this, (tjs_int)(codesave-CodeArea));
 	}
 #if 0

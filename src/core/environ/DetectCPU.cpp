@@ -191,6 +191,11 @@ void TVPDetectCPU()
     // must be iOS
     TVPCPUFeatures |= TVP_CPU_FAMILY_ARM | TVP_CPU_HAS_NEON;
 #endif
+#ifdef __SWITCH__
+    // [K2S] Tegra X1 = Cortex-A57 (AArch64, NEON always present). Without this TVPGL_ASM_Init()
+    // skipped the NEON blend routines and every pixel op ran the plain C fallback.
+    TVPCPUFeatures |= TVP_CPU_FAMILY_ARM | TVP_CPU_HAS_NEON;
+#endif
 
     tjs_uint32 features = 0;
     features =  (TVPCPUFeatures & TVP_CPU_FEATURE_MASK);

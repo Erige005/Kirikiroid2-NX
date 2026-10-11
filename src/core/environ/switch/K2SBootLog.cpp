@@ -155,6 +155,7 @@ void __libnx_exception_handler(ThreadExceptionDump *ctx)
         }
         fclose(f);
     }
+    fflush(stdout); // k2s_log.txt is block-buffered (main.cpp); after the crash file, in case this faults
     K2SBootMark("!! CPU exception, see k2s_crash.txt");
     svcExitProcess();
 }

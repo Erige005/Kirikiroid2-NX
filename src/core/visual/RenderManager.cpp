@@ -66,6 +66,37 @@ struct tTVPLayerBitmapMemoryRecord
 #endif
 
 static uint64_t _totalVMemSize = 0;
+#ifdef __SWITCH__
+// [K2S] perf probe: time spent per render method inside one engine tick. TVPMainScene::update() prints
+// the totals when the tick was slow (K2SRenderProfDump) and clears them otherwise.
+#include <time.h>
+#include <unordered_map>
+#include <algorithm>
+struct tK2SRenderProf { uint64_t us; unsigned n; };
+static std::unordered_map<std::string, tK2SRenderProf> K2SRenderProf;
+static uint64_t K2SNowUs() {
+	struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+	return (uint64_t)t.tv_sec * 1000000 + t.tv_nsec / 1000;
+}
+struct tK2SRenderProfScope {
+	const std::string &name; uint64_t t0;
+	tK2SRenderProfScope(iTVPRenderMethod *m) : name(m->GetName()), t0(K2SNowUs()) {}
+	~tK2SRenderProfScope() { tK2SRenderProf &e = K2SRenderProf[name]; e.us += K2SNowUs() - t0; e.n++; }
+};
+#define K2S_RENDER_PROF(method) tK2SRenderProfScope _k2sProf(method)
+void K2SRenderProfDump(bool print) {
+	if (print && !K2SRenderProf.empty()) {
+		std::vector<std::pair<std::string, tK2SRenderProf> > v(K2SRenderProf.begin(), K2SRenderProf.end());
+		std::sort(v.begin(), v.end(), [](const std::pair<std::string, tK2SRenderProf> &a,
+			const std::pair<std::string, tK2SRenderProf> &b) { return a.second.us > b.second.us; });
+		for (size_t i = 0; i < v.size() && i < 6; ++i)
+			printf("[K2S]   %-28s %6u us x%u\n", v[i].first.c_str(), (unsigned)v[i].second.us, v[i].second.n);
+	}
+	K2SRenderProf.clear();
+}
+#else
+#define K2S_RENDER_PROF(method)
+#endif
 
 //---------------------------------------------------------------------------
 static void * TVPAllocBitmapBits(tjs_uint size, tjs_uint width, tjs_uint height)
@@ -2399,7 +2430,14 @@ iTVPRenderMethod* iTVPRenderManager::GetOrCompileRenderMethod(const char *name, 
 
 static int cvFlags[4] = {
 	cv::INTER_NEAREST, // stNearest
+#ifdef __SWITCH__
+	// [K2S] INTER_AREA takes OpenCV's generic float path for non-integer scales: ~64 ms per 720p
+	// frame on the Switch CPU (Akatsuki no Goei camera pans ran at 3-6 fps). stFastLinear means
+	// bilinear in KiriKiri anyway; INTER_LINEAR has the fixed-point NEON path. See DECISIONS.md.
+	cv::INTER_LINEAR, // stFastLinear
+#else
 	cv::INTER_AREA, // stFastLinear
+#endif
 	cv::INTER_LINEAR, // stLinear
 	cv::INTER_CUBIC, // stCubic
 };
@@ -2634,6 +2672,12 @@ public:
 		, _drawCount(0)
 	{
 		_createStaticTexture2D = tTVPSoftwareTexture2D::Create;
+#ifdef __SWITCH__
+		// [K2S] OpenCV can't detect the core count on Switch (no /proc, no sysconf) and ran
+		// resize/warpAffine single-threaded; apps get cores 0-2.
+		cv::setNumThreads(3);
+		printf("[K2S] OpenCV threads: %d\n", cv::getNumThreads());
+#endif
 		std::string compTexMethod = IndividualConfigManager::GetInstance()->GetValue<std::string>("software_compress_tex", "none");
 		if (compTexMethod == "halfline") _createStaticTexture2D = tTVPSoftwareTexture2D_half::Create;
 		else if (compTexMethod == "lz4") _createStaticTexture2D = tTVPSoftwareTexture2D_lz4::Create;
@@ -2816,6 +2860,7 @@ public:
 	virtual void OperateRect(iTVPRenderMethod* method,
 		iTVPTexture2D *tar, iTVPTexture2D *reftar, const tTVPRect& rctar,
 		const tRenderTexRectArray &textures) {
+		K2S_RENDER_PROF(method);
 #ifdef _DEBUG
 		static bool check = false;
 		cv::Mat _src[3], _tar;
@@ -3123,6 +3168,7 @@ public:
 		iTVPTexture2D *target, iTVPTexture2D *reftar, const tTVPRect& rcclip, const tTVPPointD* pttar,
 		const tRenderTexQuadArray &textures) override {
 		++_drawCount;
+		K2S_RENDER_PROF(method);
 		assert(textures.size() == 1);
 		for (int i = 0; i < textures.size(); ++i) {
 			textures[i].first->GetScanLineForRead(0); // prepare pixel data for compressed texture
@@ -4270,6 +4316,7 @@ public:
 	virtual void OperatePerspective(iTVPRenderMethod* method, int nQuads,
 		iTVPTexture2D *target, iTVPTexture2D *reftar, const tTVPRect& rcclip, const tTVPPointD* pttar/*quad*/,
 		const tRenderTexQuadArray &textures) {
+		K2S_RENDER_PROF(method);
 		assert(textures.size() == 1);
 		for (int i = 0; i < textures.size(); ++i) {
 			textures[i].first->GetScanLineForRead(0); // prepare pixel data for compressed texture

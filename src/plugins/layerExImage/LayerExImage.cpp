@@ -19,6 +19,14 @@ typedef unsigned short WORD;
 #include <math.h>
 #include "LayerExImage.h"
 
+// [K2S] seed for the per-call xorshift32 in noise()/generateWhiteNoise(): one rand() per call
+// keeps the frames different (and srand() still affects them), never 0.
+static uint32_t k2sNoiseSeed()
+{
+	uint32_t s = (uint32_t)rand() * 2654435761u + 0x9e3779b9u;
+	return s ? s : 1;
+}
+
 void
 layerExImage::reset()
 {
@@ -352,16 +360,19 @@ layerExImage::modulate(int hue, int saturation, int luminance)
 void
 layerExImage::noise(int level)
 {
+	// [K2S] games call this every frame (zeas2's patch.tjs emulates layerexfilter's noise with it):
+	// newlib's rand() is locked and slow, 3 calls per pixel made it the bottleneck. Same distribution,
+	// (rand()/RAND_MAX - 0.5) * level truncated toward zero, from a xorshift32 generator.
 	BYTE *src = (BYTE*)_buffer;
+	uint32_t s = k2sNoiseSeed();
 	for (int y=0; y<_height; y++){
 		BYTE *p = src;
 		for (int x=0; x<_width; x++){
-			int n = (int)((rand()/(float)RAND_MAX - 0.5)*level);
-			*p = (BYTE)std::max(0,std::min(255,(int)(*p + n))); p++;
-			n = (int)((rand()/(float)RAND_MAX - 0.5)*level);
-			*p = (BYTE)std::max(0,std::min(255,(int)(*p + n))); p++;
-			n = (int)((rand()/(float)RAND_MAX - 0.5)*level);
-			*p = (BYTE)std::max(0,std::min(255,(int)(*p + n))); p++;
+			for (int c=0; c<3; c++, p++){
+				s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+				int n = ((int)(s >> 16) - 32768) * level / 65536;
+				*p = (BYTE)std::max(0,std::min(255,(int)(*p + n)));
+			}
 			p++;
 		}
 		src += _pitch;
@@ -376,10 +387,12 @@ void
 layerExImage::generateWhiteNoise()
 {
 	BYTE *src = (BYTE*)_buffer;
+	uint32_t s = k2sNoiseSeed();
 	for (int y=0; y<_height; y++){
 		BYTE *p = src;
 		for (int x=0; x<_width; x++,p+=4){
-			BYTE n = (BYTE)(rand()/(RAND_MAX/255));
+			s ^= s << 13; s ^= s >> 17; s ^= s << 5; // [K2S] see noise()
+			BYTE n = (BYTE)(s >> 24);
 			p[2] = p[1] = p[0] = n;
 		}
 		src += _pitch;

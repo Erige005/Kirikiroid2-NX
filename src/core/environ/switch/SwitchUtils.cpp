@@ -37,6 +37,28 @@ tjs_uint32 TVPGetRoughTickCount32()
 
 void TVPRelinquishCPU() { svcSleepThread(0); }
 
+// ---- CPU boost ------------------------------------------------------------------------------
+// The software renderer is CPU-bound, so while a game runs with it we ask for the official CPU boost
+// mode (HOS 7.0+, CPU 1785 MHz — the clock retail games use on loading screens; not an overclock).
+// It also drops the GPU to 76.8 MHz, which is fine for blitting one frame but would cripple the
+// OpenGL render manager, so it stays off there.
+extern "C" tjs_uint32 TVPCPUFeatures; // DetectCPU.cpp
+
+// Called from TVPAfterSystemInit() right after TVPGL_ASM_Init(), once the game's renderer is known.
+void K2SApplyCpuBoost() {
+	printf("[K2S] NEON blend routines: %s\n", (TVPCPUFeatures & 0x02000000 /*TVP_CPU_HAS_NEON*/) ? "on" : "off");
+	if (!TVPIsSoftwareRenderManager()) {
+		printf("[K2S] CPU boost: off (non-software renderer)\n");
+		return;
+	}
+	Result rc = appletSetCpuBoostMode(ApmCpuBoostMode_FastLoad);
+	printf("[K2S] CPU boost: %s (rc=0x%x)\n", R_SUCCEEDED(rc) ? "on" : "unavailable", rc);
+}
+
+void K2SResetCpuBoost() {
+	appletSetCpuBoostMode(ApmCpuBoostMode_Normal);
+}
+
 // ---- memory ---------------------------------------------------------------------------------
 // Android asks the Java side (ActivityManager); here the process memory pool is what matters:
 // in title-takeover mode that is ~3.2 GB, in applet mode ~400 MB.
@@ -196,8 +218,10 @@ static bool k2s_WriteDataToFile(const std::string &filename, const void *data, u
 
 bool TVPWriteDataToFile(const ttstr &filepath, const void *data, unsigned int size) {
 	std::string filename = filepath.AsStdString();
+	tjs_uint32 t0 = TVPGetRoughTickCount32();
 	bool ret = k2s_WriteDataToFile(filename, data, size);
-	printf("[K2S] write %s (%u bytes): %s\n", filename.c_str(), size, ret ? "ok" : "FAILED");
+	printf("[K2S] write %s (%u bytes, %u ms): %s\n", filename.c_str(), size,
+		(unsigned)(TVPGetRoughTickCount32() - t0), ret ? "ok" : "FAILED");
 	return ret;
 }
 
@@ -236,6 +260,7 @@ void TVP_utime(const char *name, time_t modtime) {
 
 void TVPExitApplication(int code) {
 	TVPDeliverCompactEvent(TVP_COMPACT_LEVEL_MAX);
+	K2SResetCpuBoost();
 	if (!TVPIsSoftwareRenderManager())
 		iTVPTexture2D::RecycleProcess();
 	exit(code);
