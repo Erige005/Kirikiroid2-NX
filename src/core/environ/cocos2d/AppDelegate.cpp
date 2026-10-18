@@ -39,7 +39,13 @@ bool TVPAppDelegate::applicationDidFinishLaunching() {
 	auto director = Director::getInstance();
 	auto glview = director->getOpenGLView();
 	if (!glview) {
+#ifdef __SWITCH__
+		// [K2S] create() makes a 960x640 view, but the Switch framebuffer is 1280x720: games were fitted into 3:2
+		// and then stretched, i.e. 16:9 games got black bars at the top and bottom and the UI was squashed.
+		glview = GLViewImpl::createWithRect("kirikiri2 frame", Rect(0, 0, 1280, 720));
+#else
 		glview = GLViewImpl::create("kirikiri2 frame");
+#endif
 		director->setOpenGLView(glview);
 #if CC_PLATFORM_WIN32 == CC_TARGET_PLATFORM
 		glview->setFrameSize(960, 640);
