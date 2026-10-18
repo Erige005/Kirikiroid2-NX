@@ -110,7 +110,7 @@ set(CORE_INC
 )
 
 # Kirikiroid2-NX version: NACP (hbmenu) and the About/credits text
-set(K2NX_VERSION "1.0.0")
+set(K2NX_VERSION "1.0.1")
 set(K2_DEFS TJS_TEXT_OUT_CRLF __STDC_CONSTANT_MACROS USE_UNICODE_FSTRING _7ZIP_ST typeof=decltype)
 # -fno-delete-null-pointer-checks: TJS2 (tTJSVariantString::GetLength etc.) tests `if (!this)` because an
 # empty ttstr holds a NULL pointer. The 2018 NDK clang kept those checks; GCC 15 deletes them (UB) and
@@ -139,7 +139,7 @@ k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/*.cpp ${K2_SRC}/plugins/*.c)
 # plugins the APK ships but the public source lacks (docs/PLUGINS.md), one folder each
 k2_glob(PLUGIN_SRC ${K2_SRC}/plugins/extrans/*.cpp ${K2_SRC}/plugins/layerExImage/*.cpp
                    ${K2_SRC}/plugins/fstat/*.cpp ${K2_SRC}/plugins/layerExDraw/*.cpp
-                   ${K2_SRC}/plugins/AlphaMovie/*.cpp)
+                   ${K2_SRC}/plugins/AlphaMovie/*.cpp ${K2_SRC}/plugins/windowEx/*.cpp)
 list(APPEND PLUGIN_SRC ${K2_SRC}/plugins/ncbind/ncbind.cpp)
 # fstat (from krkr2) uses std::filesystem
 set_source_files_properties(${K2_SRC}/plugins/fstat/main.cpp PROPERTIES COMPILE_OPTIONS "-std=gnu++17")

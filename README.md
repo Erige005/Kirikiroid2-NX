@@ -9,7 +9,7 @@ Kirikiroid2-NX is built from **zeas2's original Kirikiroid2 1.3.9 source code** 
 TJS2 script engine, KAG/KAGEX support, XP3 archives and `xp3filter.tjs` decryption support, and the same
 file-selector UI you know from the Android app — running natively as a Switch homebrew `.nro`.
 
-> **Status: v1.0.0.** Real games run from start to finish (video, voice, BGM, text, menus, transitions, saves).
+> **Status: v1.0.1.** Real games run from start to finish (video, voice, BGM, text, menus, transitions, saves).
 > A few plugins and features are still missing — see [Known issues](#known-issues). Bug reports are very welcome.
 
 ## Requirements
@@ -38,8 +38,9 @@ file-selector UI you know from the Android app — running natively as a Switch 
 - Transitions: crossfade, universal, scroll **+ extrans** (wave, mosaic, turn, rotatezoom, rotatevanish,
   rotateswap, ripple).
 - Layer effects from **layerExImage** (light, colorize, modulate, noise, gaussianBlur).
-- **layerExDraw** (GDI+-style vector/text drawing, on Blend2D), **fstat** (file/directory functions) and
-  **AlphaMovie** (`.amv` alpha movies).
+- **layerExDraw** (GDI+-style vector/text drawing, on Blend2D), **fstat** (file/directory functions),
+  **AlphaMovie** (`.amv` alpha movies) and **windowEx** (window extension methods; no-ops on the Switch's single
+  fullscreen window).
 - Original Kirikiroid2 UI (file selector, preferences), multi-touch, Switch software keyboard for text input.
 - Switch performance work: NEON blend routines, CPU boost mode (the official 1785 MHz mode retail games use on
   loading screens, software renderer only — not an overclock), fast bilinear scaling, one-pass `xp3filter.tjs`
@@ -48,7 +49,7 @@ file-selector UI you know from the Android app — running natively as a Switch 
 ## Known issues
 - System message boxes that ask Yes/No always pick the first button (a proper modal dialog is being written).
 - Not yet ported plugins that the Android APK ships: KAGParserEx, E-mote/motion player,
-  windowEx, scriptsEx, layerExRaster, shrinkCopy, json, sqlite and others — games that need them may show errors.
+  scriptsEx, layerExRaster, shrinkCopy, json, sqlite and others — games that need them may show errors.
 - Exiting a game can show "The software was closed because an error occurred".
 - Only the software renderer is supported for now.
 
@@ -84,8 +85,8 @@ marked with `[K2S]` in the code.
   gkdm.2k5@gmail.com
 - **zeas2** — [Kirikiroid2](https://github.com/zeas2/Kirikiroid2), the Android/iOS port this project is based on.
 - **W.Dee and contributors** — KiriKiri2 / KiriKiri Z (吉里吉里).
-- **Go Watanabe (wtnbgo)** — layerExImage, layerExDraw, fstat; **krkrz project** — extrans (SamplePlugin);
-  **krkr2 project** — POSIX/Blend2D ports of fstat and layerExDraw.
+- **Go Watanabe (wtnbgo)** — layerExImage, layerExDraw, fstat, windowEx; **krkrz project** — extrans (SamplePlugin);
+  **krkr2 project** — POSIX/Blend2D ports of fstat and layerExDraw, windowEx port.
 - cocos2d-x, Blend2D, FFmpeg, OpenCV, 7-Zip / p7zip, UnRAR, libbpg, jxrlib, libiconv, FreeType, OpenAL Soft, libnx /
   devkitPro, mesa, GLFW and all other libraries listed in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 

@@ -361,6 +361,9 @@ class TVPWindowLayer : public cocos2d::extension::ScrollView, public iWindowLaye
 	float _drawTextureScaleX = 1.f, _drawTextureScaleY = 1.f;
 	bool UseMouseKey = false, MouseLeftButtonEmulatedPushed = false, MouseRightButtonEmulatedPushed = false;
 	bool LastMouseMoved = false, Visible = false;
+#ifdef __SWITCH__
+	bool k2sClosedModal = false; // [K2S] hidden at the end of ShowWindowAsModal(), see there
+#endif
 	tjs_uint32 LastMouseKeyTick = 0;
 	tjs_int MouseKeyXAccel = 0;
 	tjs_int MouseKeyYAccel = 0;
@@ -780,6 +783,18 @@ public:
 			}
 		}
 		in_mode_ = false;
+#ifdef __SWITCH__
+		// [K2S] VCL's ShowModal hides the form when the modal loop ends (closing a modal window only sets the
+		// modal result). Without this the closed dialog stays the current window and the window below it stays
+		// moved off screen: e.g. Ninki Seiyuu's language dialog (askLanguage() never invalidates it) left the
+		// game on a black screen.
+		if (modal_result_ && isVisible()) {
+			SetVisible(false);
+			k2sClosedModal = true;
+			if (_currentWindowLayer && _currentWindowLayer != this)
+				_currentWindowLayer->setPosition(Vec2::ZERO);
+		}
+#endif
 	}
 
 	virtual bool GetVisible() {
@@ -787,6 +802,9 @@ public:
 	}
 
 	virtual void SetVisible(bool bVisible) {
+#ifdef __SWITCH__
+		if (bVisible) k2sClosedModal = false;
+#endif
 		Visible = bVisible;
 		setVisible(bVisible);
 		if (bVisible) {
@@ -1777,6 +1795,9 @@ void TVPMainScene::doStartup(float dt, std::string path) {
 
 	TVPWindowLayer *pWin = _lastWindowLayer;
 	while (pWin) {
+#ifdef __SWITCH__
+		if (!pWin->k2sClosedModal) // [K2S] a closed modal dialog must stay hidden
+#endif
 		pWin->setVisible(true);
 		pWin = pWin->_prevWindow;
 	}
@@ -1797,6 +1818,7 @@ extern ttstr TVPGetErrorDialogTitle();
 void TVPOnError();
 tjs_uint TVPGetGraphicCacheTotalBytes();
 #ifdef __SWITCH__
+#include <unistd.h>
 void K2SRenderProfDump(bool print);
 #endif
 void TVPMainScene::update(float delta) {
@@ -1810,6 +1832,7 @@ void TVPMainScene::update(float delta) {
 	static tjs_uint32 k2sLastFlush = 0; // stdout is block-buffered (switch/main.cpp)
 	if (k2sTick0 - k2sLastFlush >= 1000) {
 		fflush(stdout);
+		fsync(fileno(stdout)); // commit to the SD card: closing the app with HOME kills it without fclose
 		k2sLastFlush = k2sTick0;
 	}
 #else

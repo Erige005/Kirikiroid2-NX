@@ -13,6 +13,7 @@ LGPL-licensed libraries.
 | layerExImage plugin | wtnbgo/layerExImage | author's license + CxImage (zlib-style), see `src/plugins/layerExImage/LICENSE.TXT` | https://github.com/wtnbgo/layerExImage |
 | fstat plugin | krkr2 `cpp/plugins/fstat` (port of wtnbgo/fstat) | KiriKiri license | https://github.com/2468785842/krkr2 , https://github.com/wtnbgo/fstat |
 | layerExDraw plugin | krkr2 `cpp/plugins/layerex_draw/blend2d` (reimplementation of wtnbgo/layerExDraw) | KiriKiri license | https://github.com/2468785842/krkr2 , https://github.com/wtnbgo/layerExDraw |
+| windowEx plugin | reduced from krkr2 `cpp/plugins/windowEx.cpp` (port of wtnbgo/windowEx) | KiriKiri license | https://github.com/2468785842/krkr2 , https://github.com/wtnbgo/windowEx |
 | AlphaMovie plugin | own reimplementation of T.Imoto's AlphaMovie.dll API and `.amv` format | KiriKiri license | http://kaede-software.com |
 | Blend2D | d2027eb (2025-03-08) | zlib | https://github.com/blend2d/blend2d |
 | cocos2d-x | 3.11.1 (+ Switch patches) | MIT | https://github.com/cocos2d/cocos2d-x |
