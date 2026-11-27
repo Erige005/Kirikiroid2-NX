@@ -58,6 +58,74 @@ static int _touchBeginTick;
 static bool _virutalMouseMode = false;
 #ifdef __SWITCH__
 static bool _k2sStickCursor = false; // [K2S] virtual cursor shown by the left stick (see onAxisEvent)
+static cocos2d::Node *_k2sUiCursor = nullptr;
+static bool _k2sUiTouching = false;
+static uint32_t _k2sUiDpadHeld = 0; // bitmask: 1=Up, 2=Down, 4=Left, 8=Right
+static float _k2sUiDpadHoldTime = 0.0f;
+static bool _k2sUiRStickDragging = false;
+static cocos2d::Vec2 _k2sUiRStickDragPt;
+
+static cocos2d::Vec2 _k2sUiNodeToGLView(const cocos2d::Vec2& uiPt, cocos2d::Node* uiNode) {
+	auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+	cocos2d::Size designSize = uiNode->getContentSize();
+	cocos2d::Size frameSize = glview->getFrameSize();
+	float x = uiPt.x * (frameSize.width / designSize.width);
+	float y = (designSize.height - uiPt.y) * (frameSize.height / designSize.height);
+	return cocos2d::Vec2(x, y);
+}
+
+cocos2d::Sprite *TVPCreateCUR();
+static void _k2sEnsureUiCursor(cocos2d::Scene* scene, cocos2d::Node* uiNode) {
+	if (!_k2sUiCursor) {
+		_k2sUiCursor = TVPCreateCUR();
+		if (!_k2sUiCursor) return;
+		float scale = _k2sUiCursor->getScale() *
+			TVPMainScene::convertCursorScale(IndividualConfigManager::GetInstance()->GetValue<float>("vcursor_scale", 0.5f));
+		_k2sUiCursor->setScale(scale);
+		scene->addChild(_k2sUiCursor, UI_NODE_ORDER + 1);
+		_k2sUiCursor->setPosition(uiNode->getContentSize() / 2);
+	}
+	_k2sUiCursor->setVisible(true);
+	_k2sUiCursor->stopAllActions();
+	_k2sUiCursor->setOpacity(255);
+}
+
+static void _k2sHideUiCursor() {
+	if (_k2sUiTouching) {
+		auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+		intptr_t id = 99;
+		float x = 0.f, y = 0.f;
+		glview->handleTouchesEnd(1, &id, &x, &y);
+		_k2sUiTouching = false;
+	}
+	if (_k2sUiRStickDragging) {
+		auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+		intptr_t id = 98;
+		float x = 0.f, y = 0.f;
+		glview->handleTouchesEnd(1, &id, &x, &y);
+		_k2sUiRStickDragging = false;
+	}
+	_k2sUiDpadHeld = 0;
+	_k2sUiDpadHoldTime = 0.0f;
+	if (_k2sUiCursor) _k2sUiCursor->setVisible(false);
+}
+
+static void _k2sMoveUiCursor(cocos2d::Scene* scene, cocos2d::Node* uiNode, float dx, float dy) {
+	_k2sEnsureUiCursor(scene, uiNode);
+	if (!_k2sUiCursor) return;
+	cocos2d::Vec2 pt = _k2sUiCursor->getPosition();
+	cocos2d::Size size = uiNode->getContentSize();
+	pt.x = std::max(0.f, std::min(pt.x + dx, size.width));
+	pt.y = std::max(0.f, std::min(pt.y + dy, size.height));
+	_k2sUiCursor->setPosition(pt);
+	if (_k2sUiTouching) {
+		auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+		cocos2d::Vec2 glPt = _k2sUiNodeToGLView(pt, uiNode);
+		intptr_t id = 99;
+		float x = glPt.x, y = glPt.y;
+		glview->handleTouchesMove(1, &id, &x, &y);
+	}
+}
 #endif
 static bool _mouseMoved, _mouseClickedDown;
 static tjs_uint8 _scancode[0x200];
@@ -1823,6 +1891,19 @@ void K2SRenderProfDump(bool print);
 #endif
 void TVPMainScene::update(float delta) {
 #ifdef __SWITCH__
+	if (UINode && !UINode->getChildren().empty()) {
+		if (_k2sUiDpadHeld != 0) {
+			_k2sUiDpadHoldTime += delta;
+			if (_k2sUiDpadHoldTime > 0.22f) {
+				float speed = 720.0f * delta;
+				float dx = ((_k2sUiDpadHeld & 8) ? speed : 0.f) - ((_k2sUiDpadHeld & 4) ? speed : 0.f);
+				float dy = ((_k2sUiDpadHeld & 1) ? speed : 0.f) - ((_k2sUiDpadHeld & 2) ? speed : 0.f);
+				_k2sMoveUiCursor(this, UINode, dx, dy);
+			}
+		}
+	} else if ((_k2sUiCursor && _k2sUiCursor->isVisible()) || _k2sUiTouching || _k2sUiRStickDragging || _k2sUiDpadHeld != 0) {
+		_k2sHideUiCursor();
+	}
 	// [K2S] perf probe: log engine ticks (events + scripts + drawing) that stall the frame.
 	tjs_uint32 k2sTick0 = TVPGetRoughTickCount32();
 	::Application->Run();
@@ -2298,6 +2379,44 @@ void TVPMainScene::onTextInput(const std::string &text) {
 }
 
 void TVPMainScene::onAxisEvent(cocos2d::Controller* ctrl, int keyCode, cocos2d::Event *e) {
+#ifdef __SWITCH__
+	if (UINode && !UINode->getChildren().empty()) {
+		const float dead = 0.15f;
+		float v = ctrl->getKeyStatus(keyCode).value;
+		if (keyCode == cocos2d::Controller::JOYSTICK_LEFT_X || keyCode == cocos2d::Controller::JOYSTICK_LEFT_Y) {
+			if (std::abs(v) < dead) return;
+			v = (v > 0 ? v - dead : v + dead) / (1.0f - dead);
+			const float step = 16.0f * v * std::abs(v) + (v > 0 ? 1.5f : -1.5f);
+			if (keyCode == cocos2d::Controller::JOYSTICK_LEFT_X)
+				_k2sMoveUiCursor(this, UINode, step, 0.0f);
+			else
+				_k2sMoveUiCursor(this, UINode, 0.0f, -step);
+		} else if (keyCode == cocos2d::Controller::JOYSTICK_RIGHT_Y) {
+			auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+			intptr_t id = 98;
+			if (std::abs(v) < dead) {
+				if (_k2sUiRStickDragging) {
+					float x = _k2sUiRStickDragPt.x, y = _k2sUiRStickDragPt.y;
+					glview->handleTouchesEnd(1, &id, &x, &y);
+					_k2sUiRStickDragging = false;
+				}
+				return;
+			}
+			v = (v > 0 ? v - dead : v + dead) / (1.0f - dead);
+			if (!_k2sUiRStickDragging) {
+				cocos2d::Vec2 base = _k2sUiCursor ? _k2sUiCursor->getPosition() : (UINode->getContentSize() / 2);
+				_k2sUiRStickDragPt = _k2sUiNodeToGLView(base, UINode);
+				float x = _k2sUiRStickDragPt.x, y = _k2sUiRStickDragPt.y;
+				glview->handleTouchesBegin(1, &id, &x, &y);
+				_k2sUiRStickDragging = true;
+			}
+			_k2sUiRStickDragPt.y -= v * 22.0f;
+			float x = _k2sUiRStickDragPt.x, y = _k2sUiRStickDragPt.y;
+			glview->handleTouchesMove(1, &id, &x, &y);
+		}
+		return;
+	}
+#endif
 	if (!_currentWindowLayer || !_currentWindowLayer->PrimaryLayerArea) return;
 #ifdef __SWITCH__
 	// [K2S] pushing the left stick shows the virtual mouse cursor (no need to enable it in the menu first)
@@ -2364,12 +2483,52 @@ void TVPMainScene::onAxisEvent(cocos2d::Controller* ctrl, int keyCode, cocos2d::
 
 void TVPMainScene::onPadKeyDown(cocos2d::Controller* ctrl, int keyCode, cocos2d::Event *e) {
 #ifdef __SWITCH__
-	// [K2S] Kirikiroid2's own UI (file selector, preferences, dialogs) only knows the Android back key:
-	// B acts as that key there (close menu/dialog, go back); everything else in the UI is touch.
+	// [K2S] In Kirikiroid2's own UI (file selector, preferences, dialogs):
+	// Left stick / D-pad moves a top-level virtual cursor; A clicks/drags via touch injection; B acts as Back.
 	if (!UINode->getChildren().empty()) {
 		if (keyCode == cocos2d::Controller::BUTTON_B) {
 			iTVPBaseForm* uiform = dynamic_cast<iTVPBaseForm*>(UINode->getChildren().back());
 			if (uiform) uiform->onKeyPressed(EventKeyboard::KeyCode::KEY_BACK, e);
+			return;
+		}
+		const float dpadStep = 28.0f;
+		if (keyCode == cocos2d::Controller::BUTTON_DPAD_UP) {
+			_k2sUiDpadHeld |= 1;
+			_k2sUiDpadHoldTime = 0.0f;
+			_k2sMoveUiCursor(this, UINode, 0.0f, dpadStep);
+			return;
+		}
+		if (keyCode == cocos2d::Controller::BUTTON_DPAD_DOWN) {
+			_k2sUiDpadHeld |= 2;
+			_k2sUiDpadHoldTime = 0.0f;
+			_k2sMoveUiCursor(this, UINode, 0.0f, -dpadStep);
+			return;
+		}
+		if (keyCode == cocos2d::Controller::BUTTON_DPAD_LEFT) {
+			_k2sUiDpadHeld |= 4;
+			_k2sUiDpadHoldTime = 0.0f;
+			_k2sMoveUiCursor(this, UINode, -dpadStep, 0.0f);
+			return;
+		}
+		if (keyCode == cocos2d::Controller::BUTTON_DPAD_RIGHT) {
+			_k2sUiDpadHeld |= 8;
+			_k2sUiDpadHoldTime = 0.0f;
+			_k2sMoveUiCursor(this, UINode, dpadStep, 0.0f);
+			return;
+		}
+		if (keyCode == cocos2d::Controller::BUTTON_A) {
+			bool wasVisible = (_k2sUiCursor && _k2sUiCursor->isVisible());
+			_k2sEnsureUiCursor(this, UINode);
+			if (!wasVisible) return;
+			if (!_k2sUiTouching && _k2sUiCursor) {
+				auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+				cocos2d::Vec2 glPt = _k2sUiNodeToGLView(_k2sUiCursor->getPosition(), UINode);
+				intptr_t id = 99;
+				float x = glPt.x, y = glPt.y;
+				glview->handleTouchesBegin(1, &id, &x, &y);
+				_k2sUiTouching = true;
+			}
+			return;
 		}
 		return;
 	}
@@ -2395,6 +2554,23 @@ void TVPMainScene::onPadKeyDown(cocos2d::Controller* ctrl, int keyCode, cocos2d:
 }
 
 void TVPMainScene::onPadKeyUp(cocos2d::Controller* ctrl, int keyCode, cocos2d::Event *e) {
+#ifdef __SWITCH__
+	if (keyCode == cocos2d::Controller::BUTTON_DPAD_UP) _k2sUiDpadHeld &= ~1u;
+	else if (keyCode == cocos2d::Controller::BUTTON_DPAD_DOWN) _k2sUiDpadHeld &= ~2u;
+	else if (keyCode == cocos2d::Controller::BUTTON_DPAD_LEFT) _k2sUiDpadHeld &= ~4u;
+	else if (keyCode == cocos2d::Controller::BUTTON_DPAD_RIGHT) _k2sUiDpadHeld &= ~8u;
+	if (_k2sUiDpadHeld == 0) _k2sUiDpadHoldTime = 0.0f;
+	if (keyCode == cocos2d::Controller::BUTTON_A && _k2sUiTouching) {
+		auto glview = cocos2d::Director::getInstance()->getOpenGLView();
+		cocos2d::Vec2 pt = _k2sUiCursor ? _k2sUiCursor->getPosition() : (UINode->getContentSize() / 2);
+		cocos2d::Vec2 glPt = _k2sUiNodeToGLView(pt, UINode);
+		intptr_t id = 99;
+		float x = glPt.x, y = glPt.y;
+		glview->handleTouchesEnd(1, &id, &x, &y);
+		_k2sUiTouching = false;
+	}
+	if (UINode && !UINode->getChildren().empty()) return;
+#endif
 	unsigned int code = TVPConvertPadKeyCodeToVKCode(keyCode);
 	if (!code || code >= 0x200) return;
 	code = _keymap[code];
