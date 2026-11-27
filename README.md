@@ -80,6 +80,22 @@ The compiled UI (`.csb`), images and `DroidSansFallback.ttf` are taken at build 
 Kirikiroid2 1.3.9 APK release; they are not stored in this repository. Source changes made for the Switch are
 marked with `[K2S]` in the code.
 
+### Building for Nintendo Switch 2 (ounce-devkit)
+The Switch 2 port builds natively at **1920x1080** using **ounce-devkit** (`libounce` + `OunceVK` EGL/GLES2) while
+keeping full source compatibility with Switch 1 (`libnx`).
+
+**Prerequisites:**
+- `devkitA64` and Switch portlibs (`switch-glfw`, `switch-freetype`, `switch-libpng`, `switch-libjpeg-turbo`,
+  `switch-libwebp`, `switch-curl`, `switch-zlib`, `switch-openal-soft`, plus the custom third-party libs built
+  above under `$K2NX_WS/portlibs`).
+- **ounce-devkit** installed in `$DEVKITPRO` (`$DEVKITPRO/switch2vars.sh`, `$DEVKITPRO/libounce`, and `OunceVK`).
+
+```sh
+export K2NX_WS=/path/to/workspace          # this repo = $K2NX_WS/src
+# Ensure cocos2d-x, LZMA SDK, third-party portlibs, and APK assets have been prepared as above, then:
+bash src/platforms/switch/tools/build_k2_nx2.sh               # -> ~/k2s-nx2-build/k2-Release/kirikiroid2.nro
+```
+
 ## Credits
 - **Erige005** (from Vietnam) — Kirikiroid2-NX creator & maintainer — [github.com/Erige005](https://github.com/Erige005) ·
   gkdm.2k5@gmail.com
