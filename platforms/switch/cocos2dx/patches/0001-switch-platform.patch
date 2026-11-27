@@ -620,11 +620,14 @@ index 72a0fa5..b36512d 100644
  #include "platform/CCFileUtils.h"
  
  #include "ft2build.h"
-@@ -80,8 +84,13 @@ NS_CC_BEGIN
+@@ -80,8 +84,16 @@ NS_CC_BEGIN
  int Device::getDPI()
  {
      static int dpi = -1;
-+#ifdef __SWITCH__
++#ifdef __SWITCH2__
++    // 7.9" 1920x1080 panel
++    dpi = 279;
++#elif defined(__SWITCH__)
 +    // 6.2" 1280x720 panel (OLED 7" is ~210; the difference is irrelevant for UI scaling here).
 +    dpi = 237;
 +#endif
@@ -634,7 +637,7 @@ index 72a0fa5..b36512d 100644
          Display *dpy;
          char *displayname = NULL;
          int scr = 0; /* Screen number */
-@@ -98,6 +107,7 @@ int Device::getDPI()
+@@ -98,6 +110,7 @@ int Device::getDPI()
          dpi = (int) (xres + 0.5);
          //printf("dpi = %d\n", dpi);
          XCloseDisplay (dpy);
@@ -642,7 +645,7 @@ index 72a0fa5..b36512d 100644
      }
      return dpi;
  }
-@@ -117,15 +127,19 @@ class BitmapDC
+@@ -117,15 +130,19 @@ class BitmapDC
  public:
      BitmapDC() {
          libError = FT_Init_FreeType( &library );
@@ -663,7 +666,7 @@ index 72a0fa5..b36512d 100644
          reset();
      }
  
-@@ -344,6 +358,10 @@ public:
+@@ -344,6 +361,10 @@ public:
              }
          }
  
@@ -674,7 +677,7 @@ index 72a0fa5..b36512d 100644
          // use fontconfig to match the parameter against the fonts installed on the system
          FcPattern *pattern = FcPatternBuild (0, FC_FAMILY, FcTypeString, family_name, (char *) 0);
          FcConfigSubstitute(0, pattern, FcMatchPattern);
-@@ -367,6 +385,7 @@ public:
+@@ -367,6 +388,7 @@ public:
          FcPatternDestroy(pattern);
  
          return family_name;
@@ -682,7 +685,7 @@ index 72a0fa5..b36512d 100644
      }
  
      bool getBitmap(const char *text, const FontDefinition& textDefinition, Device::TextAlign eAlignMask) {
-@@ -378,9 +397,23 @@ public:
+@@ -378,9 +400,23 @@ public:
          std::string fontfile = getFontFile(textDefinition._fontName.c_str());
          if ( FT_New_Face(library, fontfile.c_str(), 0, &face) ) {
              //no valid font found use default
