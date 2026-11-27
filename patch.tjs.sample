@@ -1,0 +1,99 @@
+// ==========================================
+// krkrsdl3 compatibility patch
+// ==========================================
+
+// 1. Emulate monitor info
+System.getMonitorInfo = function() {
+    return %["monitor" => %["x" => 0, "y" => 0, "w" => 1280, "h" => 720]];
+};
+
+// 2. Safely load built-in plugins (prevent startup failure if a single plugin is missing)
+var _builtinPlugins = [
+    "csvParser.dll",
+    "extrans.dll",
+    "fstat.dll",
+    "layerExImage.dll",
+    "layerExSave.dll",
+    "windowEx.dll",
+    "layerExMovie.dll"
+];
+for (var i = 0; i < _builtinPlugins.count; i++) {
+    try {
+        Plugins.link(_builtinPlugins[i]);
+    } catch (e) {
+        Debug.message("Skip plugin: " + _builtinPlugins[i] + " (" + e.message + ")");
+    }
+}
+
+// 3. Fallback for missing DrawDeviceForSteam
+if (typeof global.DrawDeviceForSteam == "undefined") {
+    if (typeof global.BasicDrawDevice != "undefined") {
+        global.DrawDeviceForSteam = global.BasicDrawDevice;
+    } else if (typeof global.DrawDevice != "undefined") {
+        global.DrawDeviceForSteam = global.DrawDevice;
+    }
+}
+
+// 4. Emulate fstat.dll functionality to prevent crashes when querying file size
+if (typeof global.Storages != "undefined" && typeof global.Storages.fstat == "undefined") {
+    global.Storages.fstat = function(filepath) {
+        return %[
+            "size" => 0,
+            "mtime" => 0,
+            "atime" => 0,
+            "ctime" => 0
+        ];
+    };
+}
+
+// 5. Inject stub methods into native Layer to intercept effect calls from missing plugins
+if (typeof global.Layer != "undefined") {
+    if (typeof global.Layer.light == "undefined") {
+        global.Layer.light = function(l, c) {};
+    }
+    if (typeof global.Layer.gaussianBlur == "undefined") {
+        global.Layer.gaussianBlur = function(radiusX, radiusY) {};
+    }
+    if (typeof global.Layer.noise == "undefined") {
+        global.Layer.noise = function(level) {
+            Debug.message("Linux Fix: Layer.noise() called with level " + level + ", skipped.");
+        };
+    }
+}
+
+// 6. Fallback for noise() calls on custom Image objects
+if (typeof global.Image != "undefined" && typeof global.Image.noise == "undefined") {
+    global.Image.noise = function() {};
+}
+
+// 7. Emulate windowEx.dll disableResize property (prevent read-only assignment errors on Switch/Linux)
+property _dummyDisableResize {
+    getter() { return true; }
+    setter(v) {}
+}
+if (typeof global.Window != "undefined") {
+    &global.Window.disableResize = &_dummyDisableResize incontextof global.Window;
+}
+
+// 8. Fix errors when SystemObj is already destroyed upon closing the exit confirmation dialog,
+//    and directly trigger engine shutdown to close the NRO
+property _exitOnAccess {
+    getter() {
+        System.exit();
+        return function() { System.exit(); };
+    }
+    setter(v) {}
+}
+
+if (typeof global.SystemObj == "undefined") {
+    global.SystemObj = %[];
+    // Intercept common exit/cleanup methods; accessing any of them invokes System.exit() to close the NRO
+    &global.SystemObj.Exit = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.exit = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.Close = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.close = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.Quit = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.quit = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.End = &_exitOnAccess incontextof global.SystemObj;
+    &global.SystemObj.end = &_exitOnAccess incontextof global.SystemObj;
+}
